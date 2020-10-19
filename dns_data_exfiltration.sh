@@ -290,6 +290,6 @@ done && echo
 cmd_out=$(echo $cmd_out | tr -d .)
 
 echo "$cmd_out" | strict_translator -d | b64 -d > "$outfile"
-printf "\nDone, terminating the PGID:\n"
+printf "\nDone, terminating the process group:\n"
 
 setsid kill -- -$(ps -o pgid= $$ | grep -o [0-9]*)
