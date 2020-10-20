@@ -173,7 +173,7 @@ NC='\033[0m'
 [[ $mode -eq 0 ]] && printf "${YELLOW}******BASH******${NC}\n"
 [[ $mode -eq 1 ]] && printf "${YELLOW}******POWERSHELL*******${NC}\n"
 printf "Dispatcher: ${YELLOW}%s${NC}\n" "$dispatcher"
-[[ ! -f $dispatcher ]] && printf "${RED}Dispatcher file not found${NC}\n"
+[[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
 printf "Base DNS Host: ${YELLOW}%s${NC}\n" "$dns_host"
 printf "DNS Trigger Command: ${YELLOW}%s${NC}\n" "$dns_trigger"
 printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\n"
@@ -290,6 +290,5 @@ done && echo
 cmd_out=$(echo $cmd_out | tr -d .)
 
 echo "$cmd_out" | strict_translator -d | b64 -d > "$outfile"
-printf "\nDone, terminating the process group:\n"
 
-setsid kill -- -$(ps -o pgid= $$ | grep -o [0-9]*)
+setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)
