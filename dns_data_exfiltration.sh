@@ -173,11 +173,10 @@ NC='\033[0m'
 [[ $mode -eq 0 ]] && printf "${YELLOW}******BASH******${NC}\n"
 [[ $mode -eq 1 ]] && printf "${YELLOW}******POWERSHELL*******${NC}\n"
 printf "Dispatcher: ${YELLOW}%s${NC}\n" "$dispatcher"
-[[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
 printf "Base DNS Host: ${YELLOW}%s${NC}\n" "$dns_host"
 printf "DNS Trigger Command: ${YELLOW}%s${NC}\n" "$dns_trigger"
 printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\n"
-printf "Listening to DNS traffic with: ${YELLOW}%s${NC}\n" "${get_dns_traffic_cmd[*]}"
+[[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
 [[ $strict_label_charset -ne 1 && $mode -eq 1 ]] && printf "${RED}Windows+Strict Label Charset OFF=?${NC}\n"
 [[ -t 0 ]] && printf "${RED}NS DNS data are expected through stdin, check usage examples${NC}\n"
 
