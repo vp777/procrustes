@@ -4,7 +4,7 @@ A bash script that automates the exfiltration of data over dns in case we have a
 
 For its operations, the script takes as input the command we want to run on the target server and transforms it according to the target shell in order to allow its output to be exfiltrated over DNS. After the command is transformed, it's fed to the "dispatcher". The dispatcher is a program provided by the user and is responsible for taking as input a command and have it executed on the target server by any means necessary (e.g. exploiting a vulnerability). After the command is executed on the target server, it is expected to trigger DNS requests to our DNS name server containing chunks of our data. The script listens for those requests until the output of the user provided command is fully exfiltrated.
 
-Below are the supported transformations, generated for the exfiltration of the command: `ls`
+Below are the supported command transformations, generated for the exfiltration of the command: `ls`
 
 bash variant 1:
 ```bash
