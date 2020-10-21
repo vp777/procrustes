@@ -8,6 +8,7 @@ strict_label_charset=1
 outfile=/dev/stdout
 oci=0
 
+trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
 
 ########FUNCTION DEFINITIONS#############
 function usage {
@@ -286,8 +287,4 @@ for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size
     printf "\r[$index_base/$cmd_out_len]"
 done && echo
 
-cmd_out=$(echo $cmd_out | tr -d .)
-
-echo "$cmd_out" | strict_translator -d | b64 -d >> "$outfile"
-
-setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)
+echo "$cmd_out" | tr -d . | strict_translator -d | b64 -d >> "$outfile"
