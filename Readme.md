@@ -1,4 +1,4 @@
-# DNS Data Exfiltration
+# Procrustis
 
 A bash script that automates the exfiltration of data over dns in case we have a blind command execution on a server where all outbound connections except DNS are blocked. The script currently supports sh, bash and powershell and is compatible with exec style command execution (e.g. java.lang.Runtime.exec).
 
