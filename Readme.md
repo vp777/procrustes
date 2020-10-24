@@ -2,6 +2,8 @@
 
 A bash script that automates the exfiltration of data over dns in case we have a blind command execution on a server where all outbound connections except DNS are blocked. The script currently supports sh, bash and powershell and is compatible with exec style command execution (e.g. java.lang.Runtime.exec).
 
+![op](images/op.gif "bash example")
+
 For its operations, the script takes as input the command we want to run on the target server and transforms it according to the target shell in order to allow its output to be exfiltrated over DNS. After the command is transformed, it's fed to the "dispatcher". The dispatcher is a program provided by the user and is responsible for taking as input a command and have it executed on the target server by any means necessary (e.g. exploiting a vulnerability). After the command is executed on the target server, it is expected to trigger DNS requests to our DNS name server containing chunks of our data. The script listens for those requests until the output of the user provided command is fully exfiltrated.
 
 Below are the supported command transformations, generated for the exfiltration of the command: `ls`
@@ -50,8 +52,6 @@ Contents of dispatcher.sh
 ```bash
 dns_data_exfiltration.sh --help
 ```
-
-![op](images/op.gif "bash example")
 
 ### Comments
 Currently the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise, e.g. process listing) or is time/resource intensive. 
