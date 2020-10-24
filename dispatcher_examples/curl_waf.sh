@@ -18,7 +18,7 @@ function preproc {
     while IFS= read -r -d '&' param || [[ ! -z $param ]];do
         param_name=${param%%=*}
         param_name_dec=$(echo "$param_name"|urldecode)
-        [[ $param == "${param}" ]] && {
+        [[ $param_name == "${param}" ]] && {
             data=$(printf '%s&%s' "${data}" "$(printf %s "$param_name_dec"|enc)")
         } || {
             param_val=${param#"${param_name}="}
