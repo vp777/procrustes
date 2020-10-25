@@ -251,13 +251,17 @@ debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
 postfix="$unique_dns_host"
 all_chunks=()
+last_valid_time=$SECONDS
 while :;do 
     read -t $timeout -u "$dns_data_fd" -r line || break
+    [[ $((SECONDS-last_valid_time)) -gt $timeout ]] && break
     if [[ $line == *"${postfix}"* ]]; then
-        dns_req_host=$(echo "$line"|grep -Eo "[^ ]+${postfix}")
-        debug_print "dns_req_host=$dns_req_host"
+        last_valid_time=$SECONDS
         
-        all_data=${dns_req_host%${postfix}}
+        full_dns_req=$(echo "$line"|grep -Eo "[^ ]+${postfix}")
+        debug_print "full_dns_req=$full_dns_req"
+        
+        all_data=${full_dns_req%${postfix}}
         index=${all_data##*.}
         chunk=$(printf %s "${all_data%.*}" | tr -d '.')
         debug_print "index=$index chunk=$chunk"
