@@ -57,7 +57,7 @@ Contents of dispatcher.sh
 
 ### Comparison
 
-|                       | prokroustes_chunked                | prokroustis_full  |
+|                       | prokroustes_chunked                | prokroustes_full  |
 | -------------         |:-------------:               |:-----:         |
 | payload size overhead (sh/powershell) | 160\*NLABELS/500\*NLABELS                      | 315/740        |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[1] |   1👌          |
