@@ -66,7 +66,7 @@ Contents of dispatcher.sh
 [1] On prokroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-[2] It's not necessary, but we can speed up the exfiltration process by having the NS returning an ip to the requests received. This is especially usefull in the case of prokroustes_full/powershell
+[2] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of prokroustes_full/powershell
 
 ### Todos
  - prokroustes_full's powershell command can use some parallelization
