@@ -70,7 +70,11 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
 
 ---------------------------------------
 
-Some of their differences can be illustrated through the template commands used for sh/powershell:
+In a nutshell, assuming we want to exfiltrate some data that has to be broken into four chunks in order to be able to be transmitted over DNS:
+* procroustes_chunked: calls the dispatcher four times, each time requesting a different chunk from the server
+* procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over.
+
+Some of their differences can also be illustrated through the template commands used for sh/powershell:
 
 procroustes_chunked/sh:
 ```bash
