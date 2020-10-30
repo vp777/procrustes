@@ -86,7 +86,7 @@ while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(d
 ---------------------------------------
 
 
-|                       | procroustes_chunked                | procroustes_full  |  procroustes_full_staged  |
+|                       | procroustes_chunked                | procroustes_full  |  procroustes_full_staged (experimental)  |
 | -------------         |:-------------:               |:-----:         |:-----:         |
 | payload size overhead (bash/powershell) [1] | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/750 (+CMD_LEN)       |   250/❌  |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[2] |   1👌          |                1    |
