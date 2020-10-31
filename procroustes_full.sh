@@ -265,7 +265,13 @@ if [[ -z $nsconfig ]]; then
 else
     [[ -z $stager_template ]] && echo "Staged version for $shell is not yet supported" && exit
     inner_cmd_tmp=$(echo "$inner_cmd"|base64 -w0) #temporary encoding to avoid special chars
-    tmux split-window "echo '$inner_cmd_tmp'|'$nsconfig'"
+    
+    [[ ! -z $TMUX ]] && {
+        tmux split-window "echo '$inner_cmd_tmp'|'$nsconfig'"
+    } || {
+        echo "Doesn't appear to be within a tmux session, starting $nsconfig in the background"
+        echo "$inner_cmd_tmp"|"$nsconfig" &
+    }
     
     stager=${stager_template}
     stager=${stager//'%UNIQUE_DNS_HOST%'/$stager_unique_dns_host}
