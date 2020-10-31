@@ -100,6 +100,7 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
 [3] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of procroustes_full/powershell. The simple [DNS server](https://github.com/vp777/procrustes/blob/master/staged_files/dnsns.py) used for the staged version can do this task
 
 ### Todos
+ - Create a wrapper script, that will contain variables (e.g. host=a, dns_trigger=b, dispatcher=c ...) and will translate them to procrustes commands (e.g. ./procrustes_full.sh -h a -d b -x c -- "$1")
  - ~~we could achieve constant command length by sending initially a "stager" command, which will then get our full command through DNS responses.~~ (done for bash)
  - Add stagers for sh (could be a massage of the bash stager), powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L171))
  - procroustes_full/powershell command can use some parallelization:
