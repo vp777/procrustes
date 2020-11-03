@@ -317,8 +317,6 @@ while :;do
     fi
 done && echo
 
-output=$((IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d)
-last_line=$(echo "$output"|tail -n1)
-echo "$output"|sed '$d' >> "$outfile"
+(IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d>>"${outfile}"
 
 [[ -z $nchunks ]] && printf "\n${RED}Missing the output signature: try increasing timeout${NC}"
