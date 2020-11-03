@@ -195,6 +195,7 @@ printf "Number of labels and label size: ${YELLOW}${nlabels}x${label_size}${NC}\
 printf "Number of remote threads: ${YELLOW}${threads}${NC}\n"
 printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 [[ ! -x $dispatcher ]] && printf "${RED}Dispatcher file is not executable${NC}\n"
+[[ ! -z $nsconfig && ! -x $nsconfig ]] && printf "${RED}NS configuration file is not executable${NC}\n"
 [[ $strict_label_charset -ne 1 && $shell == powershell ]] && printf "${RED}Windows+Strict Label Charset OFF=?${NC}\n"
 [[ -t 0 ]] && printf "${RED}NS DNS data are expected through stdin, check usage examples${NC}\n"
 
