@@ -65,7 +65,7 @@ function strict_translator {
     IFS= read -r data
     if [[ $strict_label_charset -eq 1 ]]; then
         [[ -z $1 ]] && data=$(echo "$data"|sed "s_+_-1_g; s_/_-2_g; s_=_-3_g")
-        [[ ! -z $1 ]] && data=$(echo "$data"|sed "s_-1_+_g; s_-2_/_g; s_-3_=_g")
+        [[ ! -z $1 ]] && data=$(echo "$data"|sed "s_-1_+_g; s_-2_/_g; s_-3_=_g; s_--__g")
     fi
     printf %s "$data"  
 }
@@ -308,7 +308,7 @@ while :;do
         chunk=$(printf %s "${all_data%.*}" | tr -d '.')
         debug_print "index=$index chunk=$chunk"
         
-        #[[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
+        [[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
         [[ $chunk == *-- ]] && {
             nchunks=$index
             chunk=${chunk%--}
