@@ -4,7 +4,7 @@ A bash script that automates the exfiltration of data over dns in case we have a
 
 Unstaged:
 <p align="center">
-  <img src="images/op.gif"/>
+  <img width="680" src="images/op.gif"/>
 </p>
 
 Staged:
