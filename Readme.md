@@ -81,7 +81,7 @@ procroustes_full/bash/staged:
 | -------------         |:-------------:               |:-----:         |:-----:         |
 | payload size overhead (bash/powershell) [1] | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/800 (+CMD_LEN)       |   150/400  |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[2] |   1          |                1    |
-| speed (bash/powershell)                | ✔/✔                         |  ✔/✔         | ✔/✔ (+stage download time)|
+| speed (bash/powershell)                | ✔/✔                         |  ✔/✔         | ✓/✓ (procroustes_full+stage download time)|
 
 [1] For the staged version, the command is fetched through DNS, so the listed size is the total payload size as well.
 
