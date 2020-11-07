@@ -17,6 +17,7 @@ use_full_script=1 #chunked=0 full=!0
 dns_host=yourdns.host
 dns_trigger="dig @debug_server"
 dispatcher=path/to/dispatcher
+target_shell=powershell
 
 
 #######staged params#######
@@ -41,6 +42,7 @@ params=""
 params="${params} -h '$dns_host'"
 params="${params} -d '$dns_trigger'"
 params="${params} -x '$dispatcher'"
+params="${params} -w '$target_shell'"
 [[ ! -z $nsconfig ]] && params="${params} -z '$nsconfig'"
 [[ ! -z $stager_dns_cmd ]] && params="${params} -k '$stager_dns_cmd'"
 
