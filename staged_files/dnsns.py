@@ -76,7 +76,7 @@ def dns_handler(data):
                 if args.verbose: log('Received DNS query for %s from %s' % (dnsqr.qname.decode(), ip.src))
 
                 # remove domain part of fqdn and split the different parts of hostname
-                hostname = re.sub('\.%s\.?$' % args.domain, '', dnsqr.qname.decode()).split('.')
+                hostname = dnsqr.qname.decode().split('.')
                 
                 index_match = re.findall(r'\d+$', hostname[0])
                 index = int(index_match[0])
@@ -91,19 +91,16 @@ def dns_handler(data):
             # build response packet
             rdata = response
             rcode = 0
-            dn = args.domain
             an = (None, DNSRR(rrname=dnsqr.qname, type='A', rdata=rdata, ttl=1))[rcode == 0]
-            ns = DNSRR(rrname=dnsqr.qname, type='NS', ttl=1, rdata=args.nameserver)
+            #ns = DNSRR(rrname=dnsqr.qname, type='NS', ttl=1, rdata=args.nameserver)
 
-            response_pkt = IP(id=ip.id, src=ip.dst, dst=ip.src) / UDP(sport=udp.dport, dport=udp.sport) / DNS(id=dns.id, qr=1, rd=1, ra=1, rcode=rcode, qd=dnsqr, an=an, ns=ns)
+            response_pkt = IP(id=ip.id, src=ip.dst, dst=ip.src) / UDP(sport=udp.dport, dport=udp.sport) / DNS(id=dns.id, aa=1, qr=1, rd=1, ra=1, rcode=rcode, qd=dnsqr, an=an)
             send(response_pkt, verbose=0, iface=args.interface)
         
 
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser(description = banner)
-    parser.add_argument('domain', default=None, help='FQDN name of the DNS zone')
-    parser.add_argument('nameserver', default=None, help='FQDN name of the server running DNSlivery')
     parser.add_argument('-f', '--file', default='payload.txt', help='the file with the payload')
     parser.add_argument('-i', '--interface', default='-', help='interface to listen to DNS traffic, defaults to conf.iface')
     parser.add_argument('-p', '--path', default='.', help='path of directory to serve over DNS (default: pwd)')
@@ -152,7 +149,7 @@ if __name__ == '__main__':
         log('Error computing base64 for %s, file will been ignored' % name, '-')
         
     # display file ready for delivery
-    log('File "%s" ready for delivery at x.%s (%d chunks)' % (name, args.domain, len(chunks)))
+    log('File "%s" ready for delivery (%d chunks)' % (name, len(chunks)))
 
     # register signal handler
     signal.signal(signal.SIGINT, signal_handler)

