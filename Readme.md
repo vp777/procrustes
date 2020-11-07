@@ -89,7 +89,7 @@ procroustes_full/bash/staged:
 [2] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-[3] The staged version makes use of A records to download the payload. Even this allows our traffic to blend in better with the regular traffic of the target environment, it offers limited channel capacity (e.g. 4 bytes per request). We could make use of other record types like TXT and minimize the stage download time (close to zero) and the stager size.
+[3] The staged version makes use of A records to download the payload. Even though this allows our traffic to blend in better with the regular traffic of the target environment, it offers limited channel capacity (e.g. 4 bytes per request). We could make use of other record types like TXT and minimize the stage download time (close to zero) and the stager size.
 
 ### Tips
 
