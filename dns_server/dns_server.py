@@ -149,7 +149,7 @@ if __name__ == '__main__':
         log('Error computing base64 for %s, file will been ignored' % name, '-')
         
     # display file ready for delivery
-    log('File "%s" ready for delivery (%d chunks)' % (name, len(chunks)))
+    log('File "%s" ready for delivery (%d+1 chunks)' % (name, len(chunks)-1))
 
     # register signal handler
     signal.signal(signal.SIGINT, signal_handler)

@@ -1,16 +1,5 @@
 #!/bin/bash
 
-#not complete but should work fine for most cases
-function get_ns {
-    local current_ns
-    current_ns=$1
-    while :;do
-        current_ns=$(dig @$(dig +short ns ${current_ns#*.}|head -n1) $current_ns|fgrep -A 1 ';; AUTHORITY SECTION'|tail -n1|awk '{print $5}')
-        [[ ! -z $(dig +short a +tries=1 +time=4 $current_ns) ]] && break
-    done
-    echo $current_ns
-}
-
 prepend_text="ssh yourns 'stdbuf -oL tcpdump --immediate -l -i any udp port 53'|"
 
 use_full_script=1 #chunked=0 full=!0
@@ -29,7 +18,7 @@ target_shell=powershell
 scr=./procroustes_full.sh
 [[ $use_full_script -eq 0 ]] && scr=./procroustes_chunked.sh
 
-[[ -z $dns_host_ns ]] && dns_host_ns=$(get_ns $dns_host)
+#[[ -z $dns_host_ns ]] && dns_host_ns=$(dig +trace +time=3 +tries=1 ns $dns_host|grep d.b8.ee|grep NS|tail -n1|awk '{print $5}')
 
 
 #prefix with e_ to have the output escaped

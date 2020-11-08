@@ -1,6 +1,6 @@
 #!/bin/bash
 
 read -r cmd
-cd staged_files
+cd dns_server
 echo "$cmd"|base64 -d>payload.txt
-python3 dnsns.py
+python3 dns_server.py
