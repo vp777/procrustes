@@ -9,7 +9,7 @@ outfile=/dev/stdout
 timeout=20
 threads=5
 
-trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
+trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o '[0-9]*')" EXIT
 
 ########FUNCTION DEFINITIONS#############
 function usage {

@@ -7,7 +7,7 @@ shell=bash #bash, sh or powershell
 strict_label_charset=1
 outfile=/dev/stdout
 
-trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o [0-9]*)" EXIT
+trap "setsid kill -2 -- -$(ps -o pgid= $$ | grep -o '[0-9]*')" EXIT
 
 ########FUNCTION DEFINITIONS#############
 function usage {

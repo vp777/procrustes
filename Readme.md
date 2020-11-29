@@ -56,7 +56,7 @@ stdbuf -oL tcpdump --immediate -l -i any udp port 53|./procroustes_chunked.sh -w
 
 In a nutshell, assuming we want to exfiltrate some data that has to be broken into four chunks in order to be able to be transmitted over DNS:
 * procroustes_chunked: calls the dispatcher four times, each time requesting a different chunk from the server. It has relatively small payload size, it's fast and doesn't need any special configuration.
-* procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over. It can have bigger payload size, it's fast (speed can be tuned through the -t parameter) and it's speed can be further optimized when the dns_server is running on the name server.
+* procroustes_full: calls the dispatcher once, the command that will get executed on the server will be responsible for chunking the data and sending them over. It can have bigger payload size, it's fast (speed can be tuned through the -t parameter) and its speed can be further optimized when the dns_server is running on the name server.
 * procroustes_full/staged: same as procroustes_full, but uses a stager to get the command used by procroustes_full to chunk the data. It has the smallest "payload" size but is also the slowest with regards to exfiltration rate since the actual payload is downloaded over DNS. For its operation it requires the creation of an nsconfig script. Note: the nsconfig script should be created only once per name server (and not per target server).
 
 Some of their differences can also be illustrated through the template commands used for bash:
